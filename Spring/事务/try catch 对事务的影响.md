@@ -34,9 +34,9 @@ Spring的AOP即声明式事务管理默认是针对unchecked exception回滚。�
         return result;
     }
 
-控制台报错：![在这里插入图片描述](try catch 对事务的影响.assets/20200511145546432.png#pic_center)
+控制台报错：![在这里插入图片描述](try catch 对事务的影响.assets/20200511145546432.png)
 
-数据库：![在这里插入图片描述](try catch 对事务的影响.assets/20200511145622666.png#pic_center)
+数据库：![在这里插入图片描述](try catch 对事务的影响.assets/20200511145622666.png)
 
 
 
@@ -84,9 +84,9 @@ Spring的AOP即声明式事务管理默认是针对unchecked exception回滚。�
     }
 
 
-异常信息：![在这里插入图片描述](try catch 对事务的影响.assets/20200511150703518.png#pic_center)
+异常信息：![在这里插入图片描述](try catch 对事务的影响.assets/20200511150703518.png)
 
-数据库：![在这里插入图片描述](try catch 对事务的影响.assets/20200511150738370.png#pic_center)
+数据库：![在这里插入图片描述](try catch 对事务的影响.assets/20200511150738370.png)
 
 
 
@@ -132,7 +132,7 @@ Spring的AOP即声明式事务管理默认是针对unchecked exception回滚。�
         return userMapper.insertUser(user);
     }}
 
-异常信息：![在这里插入图片描述](try catch 对事务的影响.assets/20200511152435353.png#pic_center)
+异常信息：![在这里插入图片描述](try catch 对事务的影响.assets/20200511152435353.png)
 
 此时数据库里面一条记录也没有，也就是是说doSaveUser()方法也进行了事务回滚，我们已经用try-catch处理了异常了，为什么还会事务回滚呢？
 
@@ -150,7 +150,7 @@ Spring的AOP即声明式事务管理默认是针对unchecked exception回滚。�
 
 此时数据库多了一条记录：
 
-![在这里插入图片描述](try catch 对事务的影响.assets/20200511161126567.png#pic_center)
+![在这里插入图片描述](try catch 对事务的影响.assets/20200511161126567.png)
 
 这里，我把spring事务传播机制从REQUIRED改成了REQUIRES_NEW，doSaveUser()方法就没有进行事务回滚了，到这里你应该能猜到了，spring事务传播机制默认是REQUIRED，也就是说支持当前事务，如果当前没有事务，则新建事务，如果当前存在事务，则加入当前事务，合并成一个事务，当insertUser方法有事务且事务传播机制为REQUIRED时，会和doSaveUser()方法的事务合并成一个事务，此时insertUser方法发生异常，spring捕获异常后，事务将会被设置全局rollback，而最外层的事务方法执行commit操作，这时由于事务状态为rollback，spring认为不应该commit提交该事务，就会回滚该事务，这就是为什么doSaveUser()方法的事务也被回滚了。
 
