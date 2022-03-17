@@ -108,7 +108,7 @@ String date=format.format(cal.getTime());
 
 ### Calender.get()获取年份、月份、日
 
-```
+```java
 Calendar calendar=Calendar.getInstance(); //2021-03-26
 calender.set(Calendar.YEAR,0101)
 System.out.println(c.get(Calendar.YEAR)+"-"+ c.get(Calendar.MONTH)+"-"+c.get(Calendar.DATE));//101-3-26
@@ -117,4 +117,66 @@ String dateStr = new SimpleDateFormat("yyyy-MM-dd").format(date);	//则获得010
 ```
 
 **注意：获取此方式到的月份需要+1，因为是0~11表示，返回的值类型都为int或long，如果年份是0101或月份是09的会去掉头部的0但.getTime()返回Date再用new SimpleDateFormat("yyyy-MM-dd")转换的时候不会去掉头部的0值**
+
+-------
+
+### Calender获取上一月份
+
+```java
+ /**
+     * 
+     * @param date  当前日期  yyyyMM格式
+     * @return      返回上一月份  yyyyMM格式
+     * @throws ParseException
+     */
+    private String getLastMonthdate(String date) throws ParseException {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMM");
+        Date parse = simpleDateFormat.parse(date);
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(parse);
+        calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH) - 1);
+        String lastMonthdate = simpleDateFormat.format(calendar.getTime());
+        return lastMonthdate;
+    }
+```
+
+
+
+# [java获取当月的第一天或最后一天](https://www.cnblogs.com/qupengblog/p/14087211.html)
+
+方式共有两种，使用java.util.Calendar日历类实现
+
+1、
+
+```java
+ /**
+     * 分解日期为yyyy，MM分别获取年月,且获取当月最后一天的日期dd
+     * @param date  yyyyMM格式日期
+     * @return
+     * @throws ParseException
+     */
+    private static String[] getDateOfYearAndMonthAndDay(String date) throws ParseException {
+        String[] result = new String[3];
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMM");
+        Date parse = simpleDateFormat.parse(date);
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(parse);
+        calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
+        result[0] = String.valueOf(calendar.get(Calendar.YEAR));
+        result[1] = String.valueOf(calendar.get(Calendar.MONTH)+1);
+        result[2] = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
+        return result;
+    }
+```
+
+2、
+
+```java
+Calendar cal = Calendar.getInstance();
+cal.setTime(new Date());
+cal.set(Calendar.DAY_OF_MONTH, 1);
+System.out.println (new SimpleDateFormat("yyyy-MM-dd").format(cal.getTime()));
+cal.roll(Calendar.DAY_OF_MONTH, -1);
+System.out.println (new SimpleDateFormat("yyyy-MM-dd").format(cal.getTime()));
+```
 

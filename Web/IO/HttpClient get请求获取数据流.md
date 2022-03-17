@@ -75,7 +75,7 @@ workBook.write(out);
 
 
 
-```
+```java
 CopyHttpClient client = new DefaultHttpClient();
 HttpGet request = new HttpGet("http://10.16.83.67/1kb.log");
 HttpResponse response = null;
@@ -88,7 +88,7 @@ response = client.execute(request);
 
 
 
-```
+```java
 CopyHttpEntity entity = response.getEntity();
 rd = new BufferedReader(new InputStreamReader(entity.getContent()));
 ```
@@ -97,7 +97,7 @@ rd = new BufferedReader(new InputStreamReader(entity.getContent()));
 
 
 
-```
+```java
 Copywhile ((line = rd.readLine()) != null) {
  // ... parse or whatever
 }
@@ -131,7 +131,7 @@ Copy private class DownloadFilesTask extends AsyncTask<URL, Integer, Long> {
 
 
 ```java
-Copy protected void onProgressUpdate(Integer... progress) {
+ protected void onProgressUpdate(Integer... progress) {
      setProgressPercent(progress[0]);
  }
 

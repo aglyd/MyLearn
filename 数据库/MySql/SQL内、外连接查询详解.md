@@ -342,3 +342,78 @@ tab1.id	tab1.size	tab2.size	tab2.name
 ```
 
 其实以上结果的关键原因就是 **left join、right join、full join** 的特殊性，不管 **on** 上的条件是否为真都会返回 **left** 或 **right** 表中的记录，**full** 则具有 **left** 和 **right** 的特性的并集。 而 **inner jion** 没这个特殊性，则条件放在 **on** 中和 **where** 中，返回的结果集是相同的。
+
+
+
+----
+
+# 四、[Oracle LEFT JOIN中ON条件与WHERE条件的区别](https://blog.csdn.net/aqszhuaihuai/article/details/6238416)
+
+Oracle LEFT JOIN中ON条件与WHERE条件的区别
+
+JOIN中的ON条件与WHERE条件是一样的,而LEFT JOIN却不一样
+
+SQL> create table t1 as select * from scott.emp;
+
+ 
+
+表已创建。
+
+ 
+
+SQL> create table t2 as select * from scott.dept;
+
+ 
+
+表已创建。
+
+ 
+
+SQL> delete t2 where deptno=30;
+
+ 
+
+已删除 1行。
+
+ 
+
+以下为使用where的查询结果与执行计划
+
+
+
+![img](http://hi.csdn.net/attachment/201103/10/0_1299762687Z9zb.gif)
+
+以下为使用on条件的查询结果与执行计划
+
+![img](http://hi.csdn.net/attachment/201103/10/0_1299762743n49P.gif)
+
+ 
+
+ oracle 对谓词and t1.job='CLERK'（on 后面的）,where t1.job='CLERK'的解析是不一样的。
+
+使用where t1.job='CLERK':
+
+1 - access("T1"."DEPTNO"="T2"."DEPTNO"(+))
+2 - filter("T1"."JOB"='CLERK')
+
+Oracle 先根据"T1"."JOB"='CLERK'对T1表进行过滤，然后与T2表进行左外连接
+
+ 
+
+Oracle解析的谓词and t1.job='CLERK'（on 后面的）为：
+
+1 - access("T1"."DEPTNO"="T2"."DEPTNO"(+) AND "T1"."JOB"=CASE  WHEN
+           ("T2"."DEPTNO"(+) IS NOT NULL) THEN 'CLERK' ELSE 'CLERK' END )
+
+代表什么意思呢？
+
+oracle 对t1,t2进行全表扫描，之后进行左外连接（也可能是在扫描过程中进行连接），而and t1.job='CLERK'对连接之后的记录总数没有影响，只是对不符合and t1.job='CLERK'的记录中的部门名称置为空
+
+
+
+**当on中对左表的非连接字段限制时 与 对右表的非连接字段限制时 是两种不同的情况，请注意。**
+
+当on中对右表的非连接字段限制时(on (tab1.size1= tab2.size1 and tab2.name='AAA')) 相当于右表根据非连接字段限制获取结果，然后左表再与它关联。
+select tab1.*,tab2.* from tab1 left join tab2 on (tab1.size1= tab2.size1 and tab2.name='AAA');
+相当于
+select tab1.*,t.* from tab1 left join (select * from tab2 where tab2.name='AAA') t on (tab1.size1= t.size1);
