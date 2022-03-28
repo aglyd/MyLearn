@@ -843,3 +843,76 @@ AdventureWorks2008R2 示例数据库中的 Sales.vSalesPersonSalesByFiscalYears 
 [FROM (Transact-SQL)](https://docs.microsoft.com/zh-cn/previous-versions/sql/sql-server-2008-r2/ms177634(v=sql.105))
 
 [CASE (Transact-SQL)](https://docs.microsoft.com/zh-cn/previous-versions/sql/sql-server-2008-r2/ms181765(v=sql.105))
+
+
+
+----
+
+# 四、[Oracle：Pivot 和 Unpivot 转多列并包含多个名称](https://blog.csdn.net/paopaopotter/article/details/81735922)
+
+## Pivot
+
+1、准备数据
+
+```sql
+create table t_demo(id int,name varchar(20),nums int);  ---- 创建表  
+insert into t_demo values(1, '苹果', 1000);  
+insert into t_demo values(2, '苹果', 2000);  
+insert into t_demo values(3, '苹果', 4000);  
+insert into t_demo values(4, '橘子', 5000);  
+insert into t_demo values(5, '橘子', 3000);  
+insert into t_demo values(6, '葡萄', 3500);  
+insert into t_demo values(7, '芒果', 4200);  
+insert into t_demo values(8, '芒果', 5500); 
+```
+
+![img](重温SQL——行转列，列转行.assets/70.png)
+
+2、Pivot行转多列
+
+```sql
+select * 
+from (select name, nums from t_demo) 
+pivot (sum(nums) total,min(nums) min for name in ('苹果' apple, '橘子' orange, '葡萄' grape, '芒果' mango));
+```
+
+![img](重温SQL——行转列，列转行.assets/70.png)
+
+## Unpivot
+
+1、准备数据
+
+```sql
+CREATE TABLE t_demo_unpivot as
+select * 
+from (select name, nums from t_demo) 
+pivot (sum(nums) total,min(nums) min for name in ('苹果' apple, '橘子' orange, '葡萄' grape, '芒果' mango));
+```
+
+![img](重温SQL——行转列，列转行.assets/70.png)
+
+2.列转行
+
+```sql
+select * from t_demo_unpivot unpivot(nums for name in (APPLE_TOTAL,APPLE_MIN,ORANGE_TOTAL,ORANGE_MIN,GRAPE_TOTAL,GRAPE_MIN,MANGO_TOTAL,MANGO_MIN))
+```
+
+![img](重温SQL——行转列，列转行.assets/70.png)
+
+3.转多列并包含多个名称
+
+```sql
+select * 
+from t_demo_unpivot 
+unpivot((total,min) for name in ((APPLE_TOTAL,APPLE_MIN) AS '苹果',
+                                 (ORANGE_TOTAL,ORANGE_MIN) AS '橘子',
+                                 (GRAPE_TOTAL,GRAPE_MIN) AS '葡萄',
+                                 (MANGO_TOTAL,MANGO_MIN) AS '芒果'
+                                ) 
+        ) 
+
+
+```
+
+![img](重温SQL——行转列，列转行.assets/70.png)
+

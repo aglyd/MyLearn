@@ -1,6 +1,6 @@
 # [Mysql慢SQL分析及优化][https://www.cnblogs.com/you-men/p/14919288.html]
 
-**目录**
+## **目录**
 
 - [为何对慢SQL进行治理](https://www.cnblogs.com/you-men/p/14919288.html#_label0)
 - [Mysql执行原理](https://www.cnblogs.com/you-men/p/14919288.html#_label1)
@@ -26,7 +26,7 @@
 
 [回到顶部](https://www.cnblogs.com/you-men/p/14919288.html#_labelTop)
 
-***1\***|***0\*****为何对慢SQL进行治理**
+## 1、为何对慢SQL进行治理
 
 从数据库角度看：每个SQL执行都需要消耗一定I/O资源，SQL执行的快慢，决定资源被占用时间的长短。假设总资源是100，有一条慢SQL占用了30的资源共计1分钟。那么在这1分钟时间内，其他SQL能够分配的资源总量就是70，如此循环，当资源分配完的时候，所有新的SQL执行将会排队等待。
 从应用的角度看：SQL执行时间长意味着等待，在OLTP应用当中，用户的体验较差
@@ -42,7 +42,7 @@
 
 [回到顶部](https://www.cnblogs.com/you-men/p/14919288.html#_labelTop)
 
-***2\***|***0\*****Mysql执行原理**
+## 2、Mysql执行原理
 
 绿色部分为SQL实际执行部分，可以发现SQL执行2大步骤：解析，执行。
 
@@ -58,7 +58,7 @@
 
 [回到顶部](https://www.cnblogs.com/you-men/p/14919288.html#_labelTop)
 
-***3\***|***0\*****影响因素**
+## 3、影响因素
 
 如不考虑MySQL数据库的参数以及硬件I/O的影响， 则影响SQL执行效率的因素主要是I/O和CPU的消耗量
 总结：
@@ -73,7 +73,7 @@
 
 [回到顶部](https://www.cnblogs.com/you-men/p/14919288.html#_labelTop)
 
-***4\***|***0\*****解决思路**
+## 4、解决思路
 
 1. 将数据存放在更快的地方。
    - 如果数据量不大，变化频率不高，但访问频率很高，此时应该考虑将数据放在应用端的缓存当中或者Redis这样的缓存当中，以提高存取速度。如果数据不做过滤、关联、排序等操作，仅按照key进行存取，且不考虑强一致性需求，也可考虑选用NoSQL数据库。
@@ -85,11 +85,13 @@
 
 [回到顶部](https://www.cnblogs.com/you-men/p/14919288.html#_labelTop)
 
-***5\***|***0\*****案例 (mysql数据高CPU问题定位和优化)*****5\***|***1\*****开启慢查询**
+## 5、案例 (mysql数据高CPU问题定位和优化)
+
+### 5.1 开启慢查询
 
 
 
-```
+```sql
 ## 开关
 slow_query_log=1 
 ## 文件位置及名字 
@@ -112,13 +114,13 @@ mysql>  show variables like 'long%';
 mysql>  show variables like '%using_indexes%';
 ```
 
-***5\***|***2\*****查询一张没有索引的100w数据的表**
+### 5.2 查询一张没有索引的100w数据的表
 
 **五十个并发查询十t100w表,**
 
 
 
-```
+```sql
 mysqlslap --defaults-file=/etc/my.cnf \
 --concurrency=50 --iterations=1 --create-schema='oldboy' \
 --query="select * from oldboy.t_100w where k2='FGCD'" engine=innodb \
@@ -134,11 +136,11 @@ Benchmark
 	Average number of queries per client: 0
 ```
 
-***5\***|***3\*****查看系统资源消耗**
+### 5.3 查看系统资源消耗
 
 [![img](https://img2020.cnblogs.com/blog/1871335/202106/1871335-20210622165110332-736638832.png)](https://img2020.cnblogs.com/blog/1871335/202106/1871335-20210622165110332-736638832.png)
 
-***5\***|***4\*****mysql查看连接线程**
+### 5.4 mysql查看连接线程
 
 **1 . 通过 show processlist; 或 show full processlist; 命令查看当前执行的查询，如下图所示：**
 
@@ -175,11 +177,11 @@ For a SELECT statement, this is similar to Creating sort index, but for nontempo
 3.相关缓存大小设置：join_buffer_size，sort_buffer_size，read_buffer_size ,read_rnd_buffer_size ，tmp_table_size。
 在紧急情况下，无法改动下，通过参数控制并发度，执行时间 innodb_thread_concurrency ，max_execution_time都是有效的临时控制手段。
 
-***5\***|***5\*****查看慢日志**
+### 5.5 查看慢日志
 
 
 
-```
+```sql
 mysql> show variables like 'slow_query_log%';
 +---------------------+----------------------+
 | Variable_name       | Value                |
@@ -190,11 +192,11 @@ mysql> show variables like 'slow_query_log%';
 2 rows in set (0.00 sec)
 ```
 
-***5\***|***6\*****分析慢日志**
+### 5.6 分析慢日志
 
 
 
-```
+```sql
 [root@master1 ~]# mysqldumpslow -s c -t 10 /data/mysql/slow.log
 
 Reading mysql slow query log from /data/mysql/slow.log
@@ -207,11 +209,11 @@ Count: 3  Time=0.68s (2s)  Lock=0.00s (0s)  Rows=262.0 (786), root[root]@localho
 Died at /usr/bin/mysqldumpslow line 167, <> chunk 53.
 ```
 
-***5\***|***7\*****加索引**
+### 5.7 加索引
 
 
 
-```
+```sql
 alter table t_100w add index idx(k2);
 
 [root@master1 ~]# mysqlslap --defaults-file=/etc/my.cnf --concurrency=50 --iterations=1 --create-schema='oldboy' --query="select * from oldboy.t_100w where k2='FGCD'" engine=innodb --number-of-queries=10 -uroot -pZHOUjian.22 -verbose
@@ -229,7 +231,7 @@ Benchmark
 
 
 
-```
+```sql
 [root@master1 ~]# mysqlslap --defaults-file=/etc/my.cnf --concurrency=5000 --iterations=1 --create-schema='oldboy' --query="select * from oldboy.t_100w where k2='FGCD'" engine=innodb --number-of-queries=100 -uroot -pZHOUjian.22 -verbose
 mysqlslap: [Warning] Using a password on the command line interface can be insecure.
 Benchmark
@@ -245,7 +247,9 @@ Benchmark
 
 [回到顶部](https://www.cnblogs.com/you-men/p/14919288.html#_labelTop)
 
-***6\***|***0\*****优化方向和注意点*****6\***|***1\*****cpu优化方向**
+## 6、优化方向和注意点
+
+### 6.1 cpu优化方向
 
 - 对于MySQL硬件环境资源，建议CPU起步8核开始，SSD硬盘；
 - 索引 ，合理设计表结构，优化SQL。
@@ -253,7 +257,7 @@ Benchmark
 - 对于由应用负载高导致的 CPU 使用率高的状况，从应用架构、实例规格等方面来解决。
 - 使用 Memcache 或者 Redis缓存技术，尽量从缓存中获取常用的查询结果，减轻数据库的压力。
 
-***6\***|***2\*****mysql性能测试优化方向**
+### 6.2 mysql性能测试优化方向
 
 - 系统参数：磁盘调度算，SHELL资源限制,numa架构，文件系统ext4，exfs
 - 刷新mysql log相关刷新参数：
@@ -263,13 +267,13 @@ Benchmark
 - 并发参数: innodb_buffer_pool_instances, innodb_thread_concurrency 等
 - 因为一些服务器的特性，导致cpu通道 和 内存协调存在一些问题，导致cpu性能上去得案例也存在
 
-***6\***|***3\*****不走索引的情况(开发规范)**
+### 6.3 不走索引的情况(开发规范)
 
-**1 . 没有查询条件，或者查询条件没有建立索引**
+#### **1 . 没有查询条件，或者查询条件没有建立索引**
 
 
 
-```
+```sql
 select * from tab;       全表扫描。
 select  * from tab where 1=1;
 在业务数据库中，特别是数据量比较大的表。
@@ -287,11 +291,11 @@ select  * from  tab where name='zhangsan'          name列没有索引
 2、将name列建立索引
 ```
 
-**2 . 查询结果集是原表中的大部分数据，应该是25％以上**
+#### **2 . 查询结果集是原表中的大部分数据，应该是25％以上**
 
 
 
-```
+```sql
 查询的结果集，超过了总数行数25%，优化器觉得就没有必要走索引了。
 
 假如：tab表 id，name    id:1-100w  ，id列有(辅助)索引
@@ -302,11 +306,11 @@ select * from tab  where id>500000;
 尽量不要在mysql存放这个数据了。放到redis里面。
 ```
 
-**3 . 索引本身失效，统计数据不真实**
+#### **3 . 索引本身失效，统计数据不真实**
 
 
 
-```
+```sql
 索引有自我维护的能力。
 对于表内容变化比较频繁的情况下，有可能会出现索引失效。
 一般是删除重建
@@ -317,11 +321,11 @@ select?  --->索引失效,，统计数据不真实
 DML ?   --->锁冲突
 ```
 
-**4 . 查询条件使用函数在索引列上，或者对索引列进行运算，运算包括(+，-，\*，/，! 等)**
+#### **4 . 查询条件使用函数在索引列上，或者对索引列进行运算，运算包括(+，-，\*，/，! 等)**
 
 
 
-```
+```sql
 例子：
 错误的例子：select * from test where id-1=9;
 正确的例子：select * from test where id=10;
@@ -330,11 +334,11 @@ DML ?   --->锁冲突
 子查询
 ```
 
-**5 . 隐式转换导致索引失效.这一点应当引起重视.也是开发中经常会犯的错误.**
+#### **5 . 隐式转换导致索引失效.这一点应当引起重视.也是开发中经常会犯的错误.**
 
 
 
-```
+```sql
 这样会导致索引失效. 错误的例子：
 mysql> alter table tab add index inx_tel(telnum);
 Query OK, 0 rows affected (0.03 sec)
@@ -395,11 +399,11 @@ mysql> explain  select * from tab where telnum='1555555';
 mysql>
 ```
 
-**6 . <> ，not in 不走索引（辅助索引）**
+#### **6 . <> ，not in 不走索引（辅助索引）**
 
 
 
-```
+```sql
 EXPLAIN  SELECT * FROM teltab WHERE telnum  <> '110';
 EXPLAIN  SELECT * FROM teltab WHERE telnum  NOT IN ('110','119');
 
@@ -421,17 +425,17 @@ UNION ALL
 SELECT * FROM teltab WHERE telnum='119'
 ```
 
-**7 . like "%_" 百分号在最前面不走**
+#### **7 . like "%_" 百分号在最前面不走**
 
 
 
-```
+```sql
 EXPLAIN SELECT * FROM teltab WHERE telnum LIKE '31%'  走range索引扫描
 EXPLAIN SELECT * FROM teltab WHERE telnum LIKE '%110'  不走索引
 %linux%类的搜索需求，可以使用elasticsearch+mongodb 专门做搜索服务的数据库产品
 ```
 
-**建立外键的规则**
+#### **建立外键的规则**
 
 1. 父子表中建立外键的字段数据类型需要一致
 2. 关联父表时，父表的字段需要为父表
@@ -442,17 +446,17 @@ EXPLAIN SELECT * FROM teltab WHERE telnum LIKE '%110'  不走索引
 
 
 
-```
+```tex
 父子表写入数据时，如果想给子表中的外键写入数据，需要保证写入的数据在父表的主键列拥有该数据才能进行添加是否添加失败，用来保证数据的一致性
 ```
 
 外键在进行建立的过程中需要重新写一行进行添加，不能跟在数据类型的后面进行建立
 
-**自增**
+#### **自增**
 
 
 
-```
+```sql
 # 自增，如果为某列设置自增列，插入数据时无需设置此列的值，默认将自增（表中只能有一个自增列）
 create table tb1(
     id int auto_increment primary key,
@@ -465,7 +469,7 @@ auto_increment_offset    | 1    # 自增量的初始量
 set auto_increment_increment=2;
 ```
 
-**创建表定义一对多关系**
+#### **创建表定义一对多关系**
 
 
 
@@ -484,34 +488,34 @@ create table student2(
 );
 ```
 
-**添加主键**
+#### **添加主键**
 
 
 
-```
+```sql
 alter table 表名 add primary key(列名);
 alter table students add id int not null auto_increment, add primary key (id);
 ```
 
-**删除主键**
+#### **删除主键**
 
 
 
-```
+```sql
 alter table 表名 drop primary key;
 # 删除主键属性，保留原值和列
 
 alter table 表名  modify  列名 int, drop primary key;
 ```
 
-***6\***|***4\*****数据库注意事项**
+### 6.4 数据库注意事项
 
 **1、重要的sql必须被索引，例如：**
 **1）select、update、delete语句的where条件列；**
 **2）order by、group by、distinct字段**
 **2、mysql索引的限制：**
 **1）mysql目前不支持函数索引**
-**2）使用不等于（！=或者<>）的时候，mysql无法使用索引,**单独的>,<,in 有可能走，也有可能不走，和结果集有关，尽量结合业务添加limitor或in 尽量改成union
+**2）使用不等于（！=或者<>）的时候，mysql无法使用索引,单独的>,<,in 有可能走，也有可能不走，和结果集有关，尽量结合业务添加limitor或in 尽量改成union**
 **3）过滤字段使用单行函数 (如 abs (column)) 后, MYSQL无法使用索引。**
 **4） join语句中join条件字段类型不一致的时候MYSQL 无法使用索引**
 **5）使用 LIKE 操作的时候如果条件以通配符开始 (如 ‘%abc…’)时, MYSQL无法使用索引。**

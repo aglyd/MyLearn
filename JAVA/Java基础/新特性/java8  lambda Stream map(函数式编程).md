@@ -735,7 +735,7 @@ List<Integer> nums = Arrays.asList(1, 2, 3, 4);
 List<Integer> squareNums =  nums.stream(). map(n -> n * n). collect(Collectors.toList());
 ```
 
-map生成的是个1:1映射，每个输入元素，都按照规则转换成为另外一个元素。还有一些场景，是一对多映射关系的，这时需要 flatMap。
+**==map生成的是个1:1映射，每个输入元素，都按照规则转换成为另外一个元素。还有一些场景，是一对多映射关系的，这时需要 flatMap。==**
 map和flatMap的方法声明是不一样的
 <R> Stream<R>      map(Function<? super T, ? extends R> mapper);
 <R> Stream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper);
