@@ -216,7 +216,7 @@ x = ``10``;     ``//语句1``y = x;     ``//语句2``x++;      ``//语句3``x = 
 
 - 程序次序规则：一个线程内，按照代码顺序，书写在前面的操作先行发生于书写在后面的操作
 - 锁定规则：一个unLock操作先行发生于后面对同一个锁额lock操作
-- volatile变量规则：对一个变量的写操作先行发生于后面对这个变量的读操作
+- volatile变量规则：对一个变量的**写操作**先行发生于后面对这个变量的读操作
 - 传递规则：如果操作A先行发生于操作B，而操作B又先行发生于操作C，则可以得出操作A先行发生于操作C
 - 线程启动规则：Thread对象的start()方法先行发生于此线程的每个一个动作
 - 线程中断规则：对线程interrupt()方法的调用先行发生于被中断线程的代码检测到中断事件的发生
@@ -251,8 +251,14 @@ x = ``10``;     ``//语句1``y = x;     ``//语句2``x++;      ``//语句3``x = 
 
 　　先看一段代码，假如线程1先执行，线程2后执行：
 
-```
-//线程1``boolean` `stop = ``false``;``while``(!stop){``  ``doSomething();``}` `//线程2``stop = ``true``;
+```java
+//线程1
+boolean stop = false;
+while(!stop){
+    doSomething();
+    }
+//线程2
+stop = true;
 ```
 
  　这段代码是很典型的一段代码，很多人在中断线程时可能都会采用这种标记办法。但是事实上，这段代码会完全运行正确么？即一定会将线程中断么？不一定，也许在大多数时候，这个代码能够把线程中断，但是也有可能会导致无法中断线程（虽然这个可能性很小，但是只要一旦发生这种情况就会造成死循环了）。
@@ -265,7 +271,7 @@ x = ``10``;     ``//语句1``y = x;     ``//语句2``x++;      ``//语句3``x = 
 
 　　第一：使用volatile关键字会强制将修改的值立即写入主存；
 
-　　第二：使用volatile关键字的话，当线程2进行修改时，会导致线程1的工作内存中缓存变量stop的缓存行无效（反映到硬件层的话，就是CPU的L1或者L2缓存中对应的缓存行无效）；
+　　第二：使用volatile关键字的话，当线程2进行修改时，会导致线程1的工作内存中缓存变量stop的缓存行无效（反映到硬件层的话，就是**CPU的L1或者L2缓存中对应的缓存行无效**）；
 
 　　第三：由于线程1的工作内存中缓存变量stop的缓存行无效，所以线程1再次读取变量stop的值时会去主存读取。
 
@@ -279,8 +285,25 @@ x = ``10``;     ``//语句1``y = x;     ``//语句2``x++;      ``//语句3``x = 
 
 　　下面看一个例子：
 
-```
-public` `class` `Test {``  ``public` `volatile` `int` `inc = ``0``;``  ` `  ``public` `void` `increase() {``    ``inc++;``  ``}``  ` `  ``public` `static` `void` `main(String[] args) {``    ``final` `Test test = ``new` `Test();``    ``for``(``int` `i=``0``;i<``10``;i++){``      ``new` `Thread(){``        ``public` `void` `run() {``          ``for``(``int` `j=``0``;j<``1000``;j++)``            ``test.increase();``        ``};``      ``}.start();``    ``}``    ` `    ``while``(Thread.activeCount()>``1``) ``//保证前面的线程都执行完``      ``Thread.yield();``    ``System.out.println(test.inc);``  ``}``}
+```java
+public class Test { 
+    public volatile int inc = 0;
+    public void increase() {inc++;}
+    public static void main(String[] args) {
+        final Test test = new Test();
+        for(int i=0;i<10;i++){
+            new Thread(){public void run() {
+                for(int j=0;j<1000;j++)test.increase();       
+            };     
+            }.start(); 
+        }
+                  
+        while(Thread.activeCount()>1) //保证前面的线程都执行完``      
+                      Thread.yield();
+        
+                      System.out.println(test.inc);
+    }
+}
 ```
 
  　大家想一下这段程序的输出结果是多少？也许有些朋友认为是10000。但是事实上运行它会发现每次运行结果都不一致，都是一个小于10000的数字。
@@ -295,7 +318,7 @@ public` `class` `Test {``  ``public` `volatile` `int` `inc = ``0``;``  ` `  ``pu
 
 　　线程1对变量进行自增操作，线程1先读取了变量inc的原始值，然后线程1被阻塞了；
 
-　　然后线程2对变量进行自增操作，线程2也去读取变量inc的原始值，由于线程1只是对变量inc进行读取操作，而没有对变量进行修改操作，所以不会导致线程2的工作内存中缓存变量inc的缓存行无效，所以线程2会直接去主存读取inc的值，发现inc的值时10，然后进行加1操作，并把11写入工作内存，最后写入主存。
+　　然后线程2对变量进行自增操作，线程2也去读取变量inc的原始值，由于线程1只是对变量inc进行读取操作，而没有对变量进行修改操作，所以不会导致线程2的工作内存中缓存变量inc的缓存行无效，所以线程2会直接去主存读取inc的值，发现inc的值是10，然后进行加1操作，并把11写入工作内存，最后写入主存。
 
 　　然后线程1接着进行加1操作，由于已经读取了inc的值，注意此时在线程1的工作内存中inc的值仍然为10，所以线程1对inc进行加1操作后inc的值为11，然后将11写入工作内存，最后写入主存。
 
@@ -303,17 +326,13 @@ public` `class` `Test {``  ``public` `volatile` `int` `inc = ``0``;``  ` `  ``pu
 
 　　解释到这里，可能有朋友会有疑问，不对啊，前面不是保证一个变量在修改volatile变量时，会让缓存行无效吗？然后其他线程去读就会读到新的值，对，这个没错。这个就是上面的happens-before规则中的volatile变量规则，但是要注意，线程1对变量进行读取操作之后，被阻塞了的话，并没有对inc值进行修改。然后虽然volatile能保证线程2对变量inc的值读取是从内存中读取的，但是线程1没有进行修改，所以线程2根本就不会看到修改的值。
 
-　　根源就在这里，自增操作不是原子性操作，而且volatile也无法保证对变量的任何操作都是原子性的。
+　　根源就在这里，**==自增操作不是原子性操作，而且volatile也无法保证对变量的任何操作都是原子性的。==**
 
 　　把上面的代码改成以下任何一种都可以达到效果：
 
 　　采用synchronized：
 
-![img](https://images.cnblogs.com/OutliningIndicators/ExpandedBlockStart.gif)
-
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
-
-```
+```java
 public class Test {
     public  int inc = 0;
     
@@ -339,15 +358,11 @@ public class Test {
 }
 ```
 
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
+
 
 　　采用Lock：
 
-![img](https://images.cnblogs.com/OutliningIndicators/ExpandedBlockStart.gif)
-
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
-
-```
+```java
 public class Test {
     public  int inc = 0;
     Lock lock = new ReentrantLock();
@@ -379,15 +394,11 @@ public class Test {
 }
 ```
 
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
+
 
 　　采用AtomicInteger：
 
-![img](https://images.cnblogs.com/OutliningIndicators/ExpandedBlockStart.gif)
-
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
-
-```
+```java
 public class Test {
     public  AtomicInteger inc = new AtomicInteger();
      
@@ -413,8 +424,6 @@ public class Test {
 }
 ```
 
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
-
 　　在java 1.5的java.util.concurrent.atomic包下提供了一些原子操作类，即对基本数据类型的 自增（加1操作），自减（减1操作）、以及加法操作（加一个数），减法操作（减一个数）进行了封装，保证这些操作是原子性操作。atomic是利用CAS来实现原子性操作的（Compare And Swap），CAS实际上是利用处理器提供的CMPXCHG指令实现的，而处理器执行CMPXCHG指令是一个原子性操作。
 
 **3.volatile能保证有序性吗？**
@@ -429,14 +438,14 @@ public class Test {
 
 　　可能上面说的比较绕，举个简单的例子：
 
-```
+```java
 //x、y为非volatile变量
 //flag为volatile变量
-x = ``2``;    ``//语句1
-y = ``0``;    ``//语句2
-flag = ``true``; ``//语句3
-x = ``4``;     ``//语句4
-y = -``1``;    ``//语句5
+x = 2;    //语句1
+y = 0;    //语句2
+flag = true; //语句3
+x = 4;     //语句4
+y = -1;    //语句5
 ```
 
  由于flag变量为volatile变量，那么在进行指令重排序的过程的时候，不会将语句3放到语句1、语句2前面，也不会讲语句3放到语句4、语句5后面。但是要注意语句1和语句2的顺序、语句4和语句5的顺序是不作任何保证的。
@@ -445,7 +454,7 @@ y = -``1``;    ``//语句5
 
 　　那么我们回到前面举的一个例子：
 
-```
+```java
 //线程1:
 context = loadContext();  ``//语句1
 inited = ``true``;       ``//语句2
@@ -492,7 +501,7 @@ doSomethingwithconfig(context);
 
 **1.状态标记量**
 
-```
+```java
 volatile` `boolean` `flag = ``false``;
 while``(!flag){
   ``doSomething();
@@ -502,7 +511,7 @@ public` `void` `setFlag() {
 }
 ```
 
-```
+```java
 volatile boolean inited = false;
 //线程1:
 context = loadContext();  
@@ -519,7 +528,7 @@ doSomethingwithconfig(context);
 
 **2.double check**
 
-```
+```java
 class Singleton{
     private volatile static Singleton instance = null;
      
@@ -552,3 +561,435 @@ class Singleton{
 　　《深入理解Java虚拟机》
 
 　　http://jiangzhengjun.iteye.com/blog/652532
+
+
+
+----
+
+
+
+# [Java 之 volatile 详解](https://zhuanlan.zhihu.com/p/425772213)
+
+## 一、概念
+
+volatile 是 Java 中的关键字，是一个变量修饰符，被用来修饰会被不同线程访问和修改的变量。
+
+## 二、volatile 作用
+
+### 1. 可见性
+
+可见性是指多个线程访问同一个变量时，其中一个线程修改了该变量的值，其它线程能够立即看到修改的值。
+在 Java 内存模型中，所有的变量都存储在主存中，同时每个线程都拥有自己的工作线程，用于提高访问速度。线程会从主存中拷贝变量值到自己的工作内存中，然后在自己的工作线程中操作变量，而不是直接操作主存中的变量，由于每个线程在自己的内存中都有一个变量的拷贝，就会造成变量值不一致的问题。
+如下面的代码所示：
+测试类：
+
+```java
+class VolatileTestObj { 
+	private String value = null; 
+	private boolean hasNewValue = false; 
+	public void put(String value) { 
+		while (hasNewValue) { // 等待，防止重复赋值 
+        } 
+        this.value = value; 	
+        hasNewValue = true; 
+    } 
+	public String get() { 
+        while (!hasNewValue) { // 等待，防止获取到旧值 
+        } 
+        String value = this.value; 		
+        hasNewValue = false; return value; 
+    } 
+}
+```
+
+测试代码：
+
+```java
+public class VolatileTest { 
+	public static void main(String... args) { 
+		VolatileTestObj obj = new VolatileTestObj(); 
+		new Thread(() -> { while (true) { obj.put("time：" + System.currentTimeMillis()); } }).start(); 
+		new Thread(() -> { while (true) { System.out.println(obj.get()); } }).start(); 
+	} 
+}
+```
+
+以上测试代码中，一个线程进行赋值操作，另一个线程取值，运行该测试代码可以发现，很容易阻塞在循环等待中。
+这是因为写线程写入一个新值，同时将 hasNewValue 置为 true，**==但是只更新了写线程自己工作线程的缓存值（每个线程有自己的工作线程，会将主内存中的值拷贝到自己的工作内存中进行值操作），没有更新主存中的值。==**而读线程在获取新值是，其工作线程中的 hasNewValue 为 false，会陷入到循环等待中，即使写线程写了新值，读线程也无法获取。因为读线程没有获取都新值，写线程的 hasNewValue 没有被置回 false，所以写线程也会陷入到循环等待中。因此产生了死锁。
+使用 volatile 关键字可以解决这个问题，使用 volatile 修饰的变量确保了线程不会将该变量拷贝到自己的工作线程中，所有线程对该变量的操作都是在主存中进行的，所以 volatile 修饰的变量对所有线程可见。
+使用 volatile 修饰 hasNewValue，这样在写线程和读线程中都是在主存中操作 hasNewValue 的值，就不会产生死锁。
+
+### 2. 原子性
+
+volatile 只保证单次读/写操作的原子性，对于多步操作，volatile 不能保证原子性，如下代码所示：
+测试类：
+
+```java
+class VolatileCounter { 
+	private volatile int count = 0; 
+	public void inc() { count++; } 
+	public void dec() { count--; } 
+	public int get() { return count; } 
+}
+```
+
+测试代码：
+
+```java
+public class VolatileTest { 
+	public static void main(String... args) {
+        while (true) { 
+        VolatileCounter counter = new VolatileCounter(); 
+        Thread thread1 = new Thread(() -> { for (int i = 0; i < 50; i++) { counter.inc(); } }); 
+        Thread thread2 = new Thread(() -> { for (int i = 0; i < 50; i++) { counter.dec(); } }); 		 		 thread1.start(); thread2.start(); 
+        try { 
+        	thread1.join(); thread2.join(); 
+        	} catch (InterruptedException e) { 
+        	e.printStackTrace(); 
+       		} 
+       		System.out.println("counter = " + counter.get()); 
+       	} 
+    } 
+}
+```
+
+运行结果：
+... counter = 0 counter = 0 counter = 0 counter = 0 counter = -21 counter = 0 counter = 0 counter = 0 counter = 0 ...复制代码
+从运行结果可以看出，绝大部分情况下输出结果为 counter = 0，但也有部分其它结果。由此可知，对于 count++; 和 count--; 这两个操作并不具有原子性。
+这是因为 count++ 是一个复合操作，包括三个部分：
+
+1. 读取 count 的值；
+2. 对 count 加 1；
+3. 将 count 的值写回内存；
+
+volatile 对于这三步操作是无法保证原子性的，所以会出现上述运行结果。
+**所以，vloatile 并不能解决所有同步的问题**
+
+### 3. 有序性
+
+在 Java 内存模型中，允许编译器和处理器对指令进行重排序，重排序过程不会影响到单线程程序的执行，但是会影响到多线程并发执行的正确性。
+volatile 关键字可以禁止指令重新排序，可以保证一定的有序性。
+volatile 修饰的变量的有序性有两层含义：
+
+1. 所有在 volatile 修饰的变量写操作之前的写操作，将会对随后该 volatile 修饰的变量读操作之后的语句可见。
+2. 禁止 JVM 重排序：volatile 修饰的变量的读写指令不能和其前后的任何指令重排序，其前后的指令可能会被重排序。
+
+#### 3.1 happen-before
+
+happen-before 关系是用来判断是否存在数据竞争、线程是否安全的主要依据，也是指令重排序的依据，保证了多线程下的可见性。
+volatile 修饰的变量在读写时会建立 happen-before 关系。
+如下面的测试类：
+class VolatileOrder { int i = 0; volatile boolean flag = false; public void write() { i = 1; // 步骤 1 flag = true; // 步骤 2 } public String get() { if (flag) { // 步骤 3 System.out.println("i = " + i); // 步骤 4 } } }复制代码
+上面的代码依据 happen-before 原则（关于 happen-before 原则可自行搜索）会建立如下的关系：
+
+- 根据 happen-before 单线程顺序原则会有：步骤 1 happen-before 步骤 2、步骤 3 happen-before 步骤 4；
+- 根据 happen-before 的 volatile 原则会有：步骤 2 happen-before 步骤 3；
+- 根据 happen-before 的传递性原则会有：步骤 1 happen-before 步骤 4；
+
+所以 步骤 1 对于 步骤 4 是可见的，即变量 i 在多个线程中具有可见性。
+这也解释了 volatile 有序性的第一层含义：所有在 volatile 修饰的变量写操作之前的写操作，将会对随后该 volatile 修饰的变量读操作之后的语句可见。
+利用这个特性可以优化变量在线程间的可见性，不需要对每个变量都用 volatile 修饰，只需要用 volatile 修饰一部分变量即可保证其它变量在多线程间也具有可见性。
+
+### 3.2 禁止 JVM 重排序
+
+对于上述代码，如果变量 flag 没有使用 volatile 修饰，那么步骤 1 和步骤 2 就有可能被 JVM 重排序，就无法得到上述的 happen-before 关系，所以 volatile 修饰的变量禁止 JVM 重排序。
+如下代码所示：
+class VolatileOrder { int a, b, c; volatile int d; void write() { a = 1; b = 2; c = 3; d = 4; } void read() { int D = d; int A = a; int B = b; int C = c; } }复制代码
+在 write() 方法中：
+a = 1; b = 2; c = 3;复制代码
+JVM 可能会重排序这三个指令，但是这三个指令一定是排在 d = 4; 这个指令之前。
+同样的，在 read() 方法中：
+int A = a; int B = b; int C = c;复制代码
+JVM 可能会重排序这三个指令，但是这三个指令一定是排在 int D = d; 这个指令之后。
+
+
+
+----
+
+
+
+# [volatile底层原理详解](https://zhuanlan.zhihu.com/p/133851347)
+
+`volatile`关键字是Java虚拟机提供的最轻量级的同步机制。在多线程编程中`volatile`和`synchronized`都起着举足轻重的作用，没有这两者，也就没有那么多JUC供我们使用。
+
+本文会介绍`volatile`的作用，着重讲解`volatile`的底层实现原理。由于`volatile`的出现和CPU缓存有关，也会介绍CPU缓存的相关内容，让我们更清晰的理解`volatile`原理的来龙去脉。
+
+## 一、volatile的作用
+
+并发编程中有3大重要特性，了解一下：
+
+- 原子性
+
+一个操作或者多个操作，要么全部执行成功，要么全部执行失败。满足原子性的操作，中途不可被中断。
+
+- 可见性
+
+多个线程共同访问共享变量时，某个线程修改了此变量，其他线程能立即看到修改后的值。
+
+- 有序性
+
+程序执行的顺序按照代码的先后顺序执行。（由于JMM模型中允许编译器和处理器为了效率，进行指令重排序的优化。指令重排序在单线程内表现为串行语义，在多线程中会表现为无序。那么多线程并发编程中，就要考虑如何在多线程环境下可以允许部分指令重排，又要保证有序性）
+
+`synchronized`关键字同时保证上述三种特性。
+
+- `synchronized`是同步锁，同步块内的代码相当于同一时刻单线程执行，故不存在原子性和指令重排序的问题
+- `synchronized`关键字的语义JMM有两个规定，保证其实现内存可见性：
+- 线程解锁前，必须把共享变量的最新值刷新到主内存中；
+- 线程加锁前，将清空工作内存中共享变量的值，从主内存中冲洗取值。
+
+`volatile`关键字作用的是保证**可见性**和**有序性**，并不保证原子性。
+
+那么，`volatile`是如何保证**可见性**和**有序性**的？我们先进行基于JMM层面的实现基础，后面两章会进行底层原理的介绍。
+
+## 1.1、volatile变量的可见性
+
+Java虚拟机规范中定义了一种Java内存 模型（Java Memory Model，即JMM）来屏蔽掉各种硬件和操作系统的内存访问差异，以实现让Java程序在各种平台下都能达到一致的并发效果。Java内存模型的主要目标就是**定义程序中各个变量的访问规则，即在虚拟机中将变量存储到内存和从内存中取出变量这样的细节**。
+
+JMM中规定所有的变量都存储在主内存（Main Memory）中，每条线程都有自己的工作内存（Work Memory），线程的工作内存中保存了该线程所使用的变量的从主内存中拷贝的副本。线程对于变量的读、写都必须在工作内存中进行，而不能直接读、写主内存中的变量。同时，本线程的工作内存的变量也无法被其他线程直接访问，必须通过主内存完成。
+
+整体内存模型如下图所示：
+
+
+
+![img](Java并发编程：volatile关键字解析.assets/v2-cf02b047fcd7eab8fe4e5e0b59e2e3f0_720w.jpg)
+
+
+
+对于普通共享变量，线程A将变量修改后，体现在此线程的工作内存。在尚未同步到主内存时，若线程B使用此变量，从主内存中获取到的是修改前的值，便发生了共享变量值的不一致，也就是出现了**线程的可见性问题**。
+
+`volatile`定义：
+
+- 当对volatile变量执行写操作后，JMM会把工作内存中的最新变量值强制刷新到主内存
+- 写操作会导致其他线程中的缓存无效
+
+这样，其他线程使用缓存时，发现本地工作内存中此变量无效，便从主内存中获取，这样获取到的变量便是最新的值，实现了线程的可见性。
+
+## 1.2、volatile变量的禁止指令重排序
+
+`volatile`是通过编译器在生成字节码时，在指令序列中添加“**内存屏障**”来禁止指令重排序的。
+
+硬件层面的“**内存屏障**”：
+
+- **sfence**：即写屏障(Store Barrier)，在写指令之后插入写屏障，能让写入缓存的最新数据写回到主内存，以保证写入的数据立刻对其他线程可见
+- **lfence**：即读屏障(Load Barrier)，在读指令前插入读屏障，可以让高速缓存中的数据失效，重新从主内存加载数据，以保证读取的是最新的数据。
+- **mfence**：即全能屏障(modify/mix Barrier )，兼具sfence和lfence的功能
+- **lock 前缀**：lock不是内存屏障，而是一种锁。执行时会锁住内存子系统来确保执行顺序，甚至跨多个CPU。
+
+JMM层面的“**内存屏障**”：
+
+- **LoadLoad屏障**： 对于这样的语句Load1; LoadLoad; Load2，在Load2及后续读取操作要读取的数据被访问前，保证Load1要读取的数据被读取完毕。
+- **StoreStore屏障**：对于这样的语句Store1; StoreStore; Store2，在Store2及后续写入操作执行前，保证Store1的写入操作对其它处理器可见。
+- **LoadStore屏障**：对于这样的语句Load1; LoadStore; Store2，在Store2及后续写入操作被刷出前，保证Load1要读取的数据被读取完毕。
+- **StoreLoad屏障**： 对于这样的语句Store1; StoreLoad; Load2，在Load2及后续所有读取操作执行前，保证Store1的写入对所有处理器可见。
+
+JVM的实现会在volatile读写前后均加上内存屏障，在一定程度上保证有序性。如下所示：
+
+> LoadLoadBarrier
+> volatile 读操作
+> LoadStoreBarrier
+>
+> StoreStoreBarrier
+> volatile 写操作
+> StoreLoadBarrier
+
+## 二、volatile的的底层实现
+
+这一章会从**Java代码、字节码、Jdk源码、汇编层面、硬件层面**去揭开`volatile`的面纱。
+
+## 2.1、 Java代码层面
+
+上一段最简单的代码，`volatile`用来修饰Java变量
+
+```java
+public class TestVolatile {
+
+    public static volatile int counter = 1;
+
+    public static void main(String[] args){
+        counter = 2;
+        System.out.println(counter);
+    }
+}
+```
+
+## 2.2、字节码层面
+
+通过`javac TestVolatile.java`将类编译为class文件，再通过`javap -v TestVolatile.class`命令反编译查看字节码文件。
+
+打印内容过长，截图其中的一部分：
+
+
+
+![img](Java并发编程：volatile关键字解析.assets/v2-9f5ee135e9d6e8e14ffbc7b2ad957ee5_720w.jpg)
+
+
+
+可以看到，修饰`counter`字段的public、static、volatile关键字，在字节码层面分别是以下访问标志： **ACC_PUBLIC, ACC_STATIC, ACC_VOLATILE**
+
+`volatile`在字节码层面，就是使用访问标志：**ACC_VOLATILE**来表示，供后续操作此变量时判断访问标志是否为ACC_VOLATILE，来决定是否遵循volatile的语义处理。
+
+## 2.3、JVM源码层面
+
+上小节图中main方法编译后的字节码，有`putstatic`和`getstatic`指令（如果是非静态变量，则对应`putfield`和`getfield`指令）来操作`counter`字段。那么对于被`volatile`变量修饰的字段，是如何实现`volatile`语义的，从下面的源码看起。
+
+1、`openjdk8根路径/hotspot/src/share/vm/interpreter`路径下的`bytecodeInterpreter.cpp`文件中，处理`putstatic`和`putfield`指令的代码：
+
+```cpp
+CASE(_putfield):
+CASE(_putstatic):
+    {
+          // .... 省略若干行 
+          // ....
+
+          // Now store the result 现在要开始存储结果了
+          // ConstantPoolCacheEntry* cache;     -- cache是常量池缓存实例
+          // cache->is_volatile()               -- 判断是否有volatile访问标志修饰
+          int field_offset = cache->f2_as_index();
+          if (cache->is_volatile()) { // ****重点判断逻辑**** 
+            // volatile变量的赋值逻辑
+            if (tos_type == itos) {
+              obj->release_int_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == atos) {// 对象类型赋值
+              VERIFY_OOP(STACK_OBJECT(-1));
+              obj->release_obj_field_put(field_offset, STACK_OBJECT(-1));
+              OrderAccess::release_store(&BYTE_MAP_BASE[(uintptr_t)obj >> CardTableModRefBS::card_shift], 0);
+            } else if (tos_type == btos) {// byte类型赋值
+              obj->release_byte_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == ltos) {// long类型赋值
+              obj->release_long_field_put(field_offset, STACK_LONG(-1));
+            } else if (tos_type == ctos) {// char类型赋值
+              obj->release_char_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == stos) {// short类型赋值
+              obj->release_short_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == ftos) {// float类型赋值
+              obj->release_float_field_put(field_offset, STACK_FLOAT(-1));
+            } else {// double类型赋值
+              obj->release_double_field_put(field_offset, STACK_DOUBLE(-1));
+            }
+            // *** 写完值后的storeload屏障 ***
+            OrderAccess::storeload();
+          } else {
+            // 非volatile变量的赋值逻辑
+            if (tos_type == itos) {
+              obj->int_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == atos) {
+              VERIFY_OOP(STACK_OBJECT(-1));
+              obj->obj_field_put(field_offset, STACK_OBJECT(-1));
+              OrderAccess::release_store(&BYTE_MAP_BASE[(uintptr_t)obj >> CardTableModRefBS::card_shift], 0);
+            } else if (tos_type == btos) {
+              obj->byte_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == ltos) {
+              obj->long_field_put(field_offset, STACK_LONG(-1));
+            } else if (tos_type == ctos) {
+              obj->char_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == stos) {
+              obj->short_field_put(field_offset, STACK_INT(-1));
+            } else if (tos_type == ftos) {
+              obj->float_field_put(field_offset, STACK_FLOAT(-1));
+            } else {
+              obj->double_field_put(field_offset, STACK_DOUBLE(-1));
+            }
+          }
+          UPDATE_PC_AND_TOS_AND_CONTINUE(3, count);
+  }
+```
+
+2、重点判断逻辑`cache->is_volatile()`方法，调用的是`openjdk8根路径/hotspot/src/share/vm/utilities`路径下的`accessFlags.hpp`文件中的方法，**用来判断访问标记是否为volatile修饰**。
+
+```cpp
+// Java access flags
+  bool is_public      () const         { return (_flags & JVM_ACC_PUBLIC      ) != 0; }
+  bool is_private     () const         { return (_flags & JVM_ACC_PRIVATE     ) != 0; }
+  bool is_protected   () const         { return (_flags & JVM_ACC_PROTECTED   ) != 0; }
+  bool is_static      () const         { return (_flags & JVM_ACC_STATIC      ) != 0; }
+  bool is_final       () const         { return (_flags & JVM_ACC_FINAL       ) != 0; }
+  bool is_synchronized() const         { return (_flags & JVM_ACC_SYNCHRONIZED) != 0; }
+  bool is_super       () const         { return (_flags & JVM_ACC_SUPER       ) != 0; }
+  // 是否volatile修饰
+  bool is_volatile    () const         { return (_flags & JVM_ACC_VOLATILE    ) != 0; }
+  bool is_transient   () const         { return (_flags & JVM_ACC_TRANSIENT   ) != 0; }
+  bool is_native      () const         { return (_flags & JVM_ACC_NATIVE      ) != 0; }
+  bool is_interface   () const         { return (_flags & JVM_ACC_INTERFACE   ) != 0; }
+  bool is_abstract    () const         { return (_flags & JVM_ACC_ABSTRACT    ) != 0; }
+  bool is_strict      () const         { return (_flags & JVM_ACC_STRICT      ) != 0; }
+```
+
+3、下面一系列的if...else...对`tos_type`字段的判断处理，是针对java基本类型和引用类型的赋值处理。如：
+
+```cpp
+obj->release_byte_field_put(field_offset, STACK_INT(-1));
+```
+
+对byte类型的赋值处理，调用的是`openjdk8根路径/hotspot/src/share/vm/oops`路径下的`oop.inline.hpp`文件中的方法：
+
+```cpp
+// load操作调用的方法
+inline jbyte oopDesc::byte_field_acquire(int offset) const                  
+{ return OrderAccess::load_acquire(byte_field_addr(offset));     }
+// store操作调用的方法
+inline void oopDesc::release_byte_field_put(int offset, jbyte contents)     
+{ OrderAccess::release_store(byte_field_addr(offset), contents); }
+```
+
+赋值的操作又被包装了一层，又调用的**OrderAccess::release_store**方法。
+
+4、OrderAccess是定义在`openjdk8根路径/hotspot/src/share/vm/runtime`路径下的`orderAccess.hpp`头文件下的方法，具体的实现是根据不同的操作系统和不同的cpu架构，有不同的实现。
+
+**强烈建议大家读一遍`orderAccess.hpp`文件中30-240行的注释！！！**你就会发现本文1.2章所介绍内容的来源，也是网上各种雷同文章的来源。
+
+![img](Java并发编程：volatile关键字解析.assets/v2-bc745221b6967a3346966821bb1f6b39_720w.jpg)
+
+
+
+`orderAccess_linux_x86.inline.hpp`是linux系统下x86架构的实现：
+
+
+
+![img](Java并发编程：volatile关键字解析.assets/v2-60799c160c09bc99ff2dbc5ca0a3c6e4_720w.jpg)
+
+
+
+可以从上面看到，到c++的实现层面，又使用c++中的volatile关键字，用来修饰变量，通常用于建立语言级别的memory barrier。在《C++ Programming Language》一书中对volatile修饰词的解释：
+
+> A volatile specifier is a hint to a compiler that an object may change its value in ways not specified by the language so that aggressive optimizations must be avoided.
+
+含义就是：
+
+- volatile修饰的类型变量表示可以被某些编译器未知的因素更改（如：操作系统，硬件或者其他线程等）
+- 使用 volatile 变量时，避免激进的优化。即：系统总是重新从内存读取数据，即使它前面的指令刚从内存中读取被缓存，防止出现未知更改和主内存中不一致
+
+5、步骤3中对变量赋完值后，程序又回到了2.3.1小章中第一段代码中一系列的if...else...对`tos_type`字段的判断处理之后。有一行关键的代码：**OrderAccess::storeload();** 即：只要volatile变量赋值完成后，都会走这段代码逻辑。
+
+它依然是声明在`orderAccess.hpp`头文件中，在不同操作系统或cpu架构下有不同的实现。`orderAccess_linux_x86.inline.hpp`是linux系统下x86架构的实现：
+
+
+
+![img](Java并发编程：volatile关键字解析.assets/v2-a70c09d543f49a8784af527346f5adf4_720w.jpg)
+
+
+
+代码`lock; addl $0,0(%%rsp)` 其中的addl $0,0(%%rsp) 是把寄存器的值加0，相当于一个空操作（之所以用它，不用空操作专用指令nop，是因为lock前缀不允许配合nop指令使用）
+
+**lock前缀，会保证某个处理器对共享内存（一般是缓存行cacheline，这里记住缓存行概念，后续重点介绍）的独占使用。它将本处理器缓存写入内存，该写入操作会引起其他处理器或内核对应的缓存失效。通过独占内存、使其他处理器缓存失效，达到了“指令重排序无法越过内存屏障”的作用**
+
+## 2.4、汇编层面
+
+运行2.1章的代码时，加上JVM的参数：`-XX:+UnlockDiagnosticVMOptions -XX:+PrintAssembly`，就可以看到它的汇编输出。（如果运行报错，参见上篇文章：[synchronized底层原理（从Java对象头说到即时编译优化）](https://link.zhihu.com/?target=https%3A//blog.csdn.net/lpf463061655/article/details/105149322),拉到文章最底部有解决方案）
+
+打印的汇编代码较长，仅截取其中的关键部分：
+
+
+
+![img](Java并发编程：volatile关键字解析.assets/v2-d7f0b40b2eafcabb59c6c3999978c176_720w.jpg)
+
+
+
+又看到了`lock addl $0x0,(%rsp)`指令，熟悉的配方熟悉的味道，和上面2.3章中的**步骤5**一摸一样，其实这里就是步骤5中代码的体现。
+
+## 2.5、硬件层面
+
+为什么会有上述如此复杂问题？为什么会有并发编程？为什么会产生可见性、有序性、原子性的线程或内存问题？
+
+归根结底，还是计算机硬件高速发展的原因。CPU架构的发展，多核CPU的产生以及CPU缓存的适配是导致并发问题产生的原因之一。
+
+CPU缓存相关内容也是一大块内容，消化完上述的干货内容，**请看下一篇对CPU缓存相关的干货文章。**

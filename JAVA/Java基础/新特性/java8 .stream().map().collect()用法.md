@@ -34,10 +34,6 @@ List<Integer> squaresList = numbers.stream().map( i -> i*i).distinct().collect(C
 
 **filter():filter 方法用于通过设置的条件过滤出元素。以下代码片段使用 filter 方法过滤出空字符串：**
 
- 
-
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
-
 ```
 List<String>strings = Arrays.asList("abc", "", "bc", "efg", "abcd","", "jkl");
 // 获取空字符串的数量
@@ -49,13 +45,7 @@ Random random = new Random();
 random.ints().limit(10).forEach(System.out::println);
 ```
 
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
-
- 
-
 **sorted(): 用于对流进行排序。以下代码片段使用 sorted 方法对输出的 10 个随机数进行排序：**
-
-[![复制代码](https://common.cnblogs.com/images/copycode.gif)](javascript:void(0);)
 
 ```
 Random random = new Random();

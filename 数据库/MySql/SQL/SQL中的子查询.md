@@ -35,7 +35,7 @@ HAVING AVG(SAL) = (SELECT MAX(AVG(SAL)) FROM EMP GROUP BY JOB);
 
 ```sql
 SELECT JOB,AVG(SAL)
-FROM (SELECT JOB,AVG(SAL) AS AVGSAL FROM EMP GROUP BY JOB)TEMP
+FROM (SELECT JOB,AVG(SAL) AS AVGSAL FROM EMP GROUP BY JOB) TEMP
 WHERE TEMP.AVGSAL>2000;
 ```
 
@@ -252,4 +252,117 @@ UNION指示MySQL执行两条SELECT语句，**并把输出组合成单个查询�
 
 ![img](SQL中的子查询.assets/2019032608551524.png)
 
-在用UNION组合查询时，**只能使用一条ORDER BY子句，它必须出现在最后一条SELECT语句之后**。对于结果集，不存在用一种方式排序一部分，而又用另一种方式排序另一部分的情况，因此不允许使用多条ORDER BY子句。该ORDER BY子句对所有SELECT语句返回的所有结果进行排序。
+在用UNION组合查询时，**只能使用一条ORDER BY子句，它必须出现在最后一条SELECT语句之后**。对于结果集，不存在用一种方式排序一部分，而又用另一种方式排序另一部分的情况，因此不允许使用多条ORDER BY子句。**该ORDER BY子句对所有SELECT语句返回的所有结果进行排序。**
+
+
+
+-----
+
+# 三、[子查询（7种类型）](https://blog.csdn.net/qq_39380737/article/details/81127497)
+
+## where型子查询：
+
+查出每个栏目最新的商品(以good_id为最大为最新商品)：
+goods货物表，good_id表的主键,cat_id栏目的编号
+
+```
+select cat_id,good_id,good_name from goods where good_id in(selct max(good_id) from goods group by cat_id);
+```
+
+## form型子查询：
+
+查出每个栏目最新的商品(以good_id为最大为最新商品)：
+
+```
+select * from (select cat_id,good_id,good_name from goods order by cat_id asc, good_id desc) as tep group by cat_id;
+```
+
+## from和where型综合练习：
+
+查出挂科2门及以上同学的平均分：
+
+![20180720142006199](SQL中的子查询.assets/20180720142006199.png)
+
+思路讲解：
+
+```sql
+-- 1.先求出挂科两门以上及两门的同学
+-- select name,count(*) as gk from stu where score<60 group by name having gk>=2;
+-- 2.去除多余的一行
+-- select name from (select name,count(*) as gk from stu where score<60 group by name having gk>=2)as tmp;
+--3.最终结果
+select name ,avg(score) as '平均分' from stu where name in(select name from (select name,count(*) as gk from stu where score<60 group by name having gk>=2)as tmp)
+group by name;
+```
+
+查询结果：
+
+![20180720144111776](SQL中的子查询.assets/20180720144111776.png)
+
+其余5种：
+department表：
+
+![3](SQL中的子查询.assets/3.png)
+
+employee表：
+
+
+
+## in子查询：查询年龄为20岁的员工部门
+
+```sql
+ select * from department where did in(SELECT did from employee where age=20);
+```
+
+
+
+## exists子查询:
+
+查询是否存在年龄大于21岁的员工
+
+```sql
+select * from department where EXISTS (SELECT did from employee where age>21);
+```
+
+
+
+## any子查询：
+
+查询满足条件的部门
+
+```sql
+select * from department where did> any (SELECT did from employee );
+```
+
+
+
+## all子查询：
+
+查询满足条件的部门
+
+```sql
+select * from department where did> all(SELECT did from employee );
+```
+
+
+
+## 比较运算符子查询：
+
+查询赵四是哪个部门的
+
+```sql
+select * from department where did= all(SELECT did from employee where name='赵四'); 
+```
+
+
+
+## 总结：
+
+  **where型子查询：**指把内部查询的结果作为外层查询的比较条件。
+  **from型子查询：**把内层的查询结果当成临时表，供外层sql再次查询。
+  **in子查询：**内层查询语句仅返回一个数据列，这个数据列的值将供外层查询语句进行比较。
+  **exists子查询：**把外层的查询结果，拿到内层，看内层是否成立，简单来说后面的返回true,外层（也就是前面的语句）才会执行，否则不执行。
+  **any子查询：**只要满足内层子查询中的**任意一个比较条件**，就返回一个结果作为外层查询条件。
+  **all子查询**：内层子查询返回的结果需同时**满足所有内层查询条件**。
+  **比较运算符子查询：**子查询中可以使用的比较运算符如 “>” “<” “= ” “!=”
+

@@ -441,7 +441,7 @@ COMMIT;
 
 **结论**
 
-1. 在普通索引列上，**不管是何种查询，只要加锁，都会产生间隙锁，这跟唯一索引不一样；**
+1. **在普通索引列上，不管是何种查询，只要加锁，都会产生间隙锁，这跟唯一索引不一样；**
 2. 在普通索引跟唯一索引中，数据间隙的分析，数据行是优先根据普通索引排序，再根据唯一索引排序。
 
 
@@ -677,3 +677,112 @@ COMMIT;
 
 [聊一聊MVCC是怎么回事](https://links.jianshu.com/go?to=https%3A%2F%2Fzhuanlan.zhihu.com%2Fp%2F347587789)
 
+
+
+----
+
+# 五、[什么是间隙锁](https://www.cnblogs.com/phyger/p/14377651.html)
+
+## 1、中心思想
+
+间隙锁锁的是索引叶子节点的next指针。
+
+## 2、意义
+
+解决了mysql RR级别下是幻读的问题。
+
+### 2.1、快照读
+
+在RR隔离级别下：快照读有可能读到数据的历史版本，也有可能读到数据的当前版本。所以快照读无需用锁也不会发生幻读的情况。
+
+### 2.2、当前读
+
+当前读：select…lock in share mode,select…for update
+当前读：update,delete,insert
+
+读取的是记录的最新版本，所以所以就需要通过加锁（行锁 间隙锁 表锁）的方式，使得被当前读读过的数据不能被新增修改或者删除，换句话说再来一次当前读要返回相同的数据。
+
+## 3、为什么需要间隙锁
+
+### 3.1、数据表
+
+
+
+```
+CREATE TABLE `z` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `b` int(11) DEFAULT NULL,
+  `c` int(255) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `b` (`b`)
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8;
+
+
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('1', '1', '0');
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('3', '6', '1');
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('5', '4', '2');
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('7', '8', '3');
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('8', '10', '4');
+```
+
+### 3.2、索引B结构
+
+![img](间隙锁 gap lock.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzIxNzI5NDE5,size_16,color_FFFFFF,t_70-164888005161610.png)
+
+
+
+### 3.3、锁加在哪里
+
+begin; select * from z where b = 6 for update;
+
+这条sql语句之后看看我们 需要做什么才能保证不发生幻读。
+
+1不能插入b为6的数据
+
+2不能删除b为6的数据
+
+3不能修改b为6的数据
+
+4不能把别的数据修改为b为6
+
+突然一看挺复杂的，这个锁要怎么加呢，mysql大牛灵机一动，给叶子节点5的next指针加锁，给叶子节点3加行锁，给叶子节点3的next指针加锁。如下图所示
+
+![img](间隙锁 gap lock.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzIxNzI5NDE5,size_16,color_FFFFFF,t_70-164888009290812.png)
+
+这样不就能把上述四个问题解决了么，两个next指针锁解决了插入b为6或者把别的数据修改为b为6，行锁解决了修改b为6的行，但是呢也带来一些明显的副作用。
+
+例如
+
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('6', '4', '0'); 
+
+ 会bolck因为按照索引结构这条数据会插入到叶子结点5和3之间，会修改叶子节点5的next指针，虽然这条sql没有破坏上述的4个红色条件但是依然被阻塞了所以我叫它为副作用。
+
+INSERT INTO `study`.`z` (`id`, `b`, `c`) VALUES ('4', '4', '0'); 
+
+ 插入成功因为这条数据会插入在1的后面5的前面。
+
+现在大家是不是能理解间隙锁的怪异行为了呢。
+
+## 4、间隙锁范围
+
+begin; 
+select * from z where id=4 for update;
+
+会锁住主键索引叶子节点的3的next指针。（为啥呢，需要你自己画主键索引的图）
+
+begin; 
+select * from z where id=3 for update;
+
+间隙锁会退化为行锁只锁叶子节点3 ,为什么因为没必要。不加间隙锁也不会打破上述的红色4个条件。
+
+begin; 
+select * from z where id>4 for update;
+
+叶子节点3及之后所有节点会加行锁并且他们的next指针会加锁，
+
+begin; 
+select * from z where c=2 for update;
+
+会发生锁表，因为c没有索引结构能存储行锁或者间隙锁。
+
+ 

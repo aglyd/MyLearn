@@ -121,7 +121,7 @@ spring:
 
 config类
 
- * ```
+ * ```java
  /**
     
      * @Author peppers
@@ -159,51 +159,53 @@ config类
     
 
 
-    /**重写 #configure(HttpSecurity http) 方法，主要配置 URL 的权限控制*/
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-                //配置请求地址的全限,开始配置 URL 的权限控制
-                /**#(String... antPatterns) 方法，配置匹配的 URL 地址，基于 Ant 风格路径表达式 ，可传入多个。
-                 【常用】#permitAll() 方法，所有用户可访问。
-                 【常用】#denyAll() 方法，所有用户不可访问。
-                 【常用】#authenticated() 方法，登录用户可访问。
-                 #anonymous() 方法，无需登录，即匿名用户可访问。
-                 #rememberMe() 方法，通过 remember me 登录的用户可访问。
-                 #fullyAuthenticated() 方法，非 remember me 登录的用户可访问。
-                 #hasIpAddress(String ipaddressExpression) 方法，来自指定 IP 表达式的用户可访问。
-                 【常用】#hasRole(String role) 方法， 拥有指定角色的用户可访问。
-                 【常用】#hasAnyRole(String... roles) 方法，拥有指定任一角色的用户可访问。
-                 【常用】#hasAuthority(String authority) 方法，拥有指定权限(authority)的用户可访问。
-                 【常用】#hasAuthority(String... authorities) 方法，拥有指定任一权限(authority)的用户可访问。
-                 【最牛】#access(String attribute) 方法，当 Spring EL 表达式的执行结果为 true 时，可以访问。*/
-        .authorizeRequests()
-                //所有用户可访问
-                .antMatchers("/test/echo").permitAll()
-                //需要admin角色
-                .antMatchers("/test/admin").hasRole("ADMIN")
-                //需要normal角色
-                .antMatchers("test/normal").access("hasRole('ROLE_NORMAL')")
-               /**配置了 .anyRequest().authenticated() ，任何请求，访问的用户都需要经过认证。*/
-                // .anyRequest().authenticated()
-                .and()
-                //设置Form表单登录
-                .formLogin()
-                //登录URL地址
-                        .loginPage("/login")
-                    .permitAll() //所有用户可访问
-                .and()
-                //配置退出相关
-                .logout()
-                //退出URL地址
-                .logoutUrl("/logout")
-        .permitAll(); //所有用户可访问
-    }
-    }
+```java
+/**重写 #configure(HttpSecurity http) 方法，主要配置 URL 的权限控制*/
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            //配置请求地址的全限,开始配置 URL 的权限控制
+            /**#(String... antPatterns) 方法，配置匹配的 URL 地址，基于 Ant 风格路径表达式 ，可传入多个。
+             【常用】#permitAll() 方法，所有用户可访问。
+             【常用】#denyAll() 方法，所有用户不可访问。
+             【常用】#authenticated() 方法，登录用户可访问。
+             #anonymous() 方法，无需登录，即匿名用户可访问。
+             #rememberMe() 方法，通过 remember me 登录的用户可访问。
+             #fullyAuthenticated() 方法，非 remember me 登录的用户可访问。
+             #hasIpAddress(String ipaddressExpression) 方法，来自指定 IP 表达式的用户可访问。
+             【常用】#hasRole(String role) 方法， 拥有指定角色的用户可访问。
+             【常用】#hasAnyRole(String... roles) 方法，拥有指定任一角色的用户可访问。
+             【常用】#hasAuthority(String authority) 方法，拥有指定权限(authority)的用户可访问。
+             【常用】#hasAuthority(String... authorities) 方法，拥有指定任一权限(authority)的用户可访问。
+             【最牛】#access(String attribute) 方法，当 Spring EL 表达式的执行结果为 true 时，可以访问。*/
+    .authorizeRequests()
+            //所有用户可访问
+            .antMatchers("/test/echo").permitAll()
+            //需要admin角色
+            .antMatchers("/test/admin").hasRole("ADMIN")
+            //需要normal角色
+            .antMatchers("test/normal").access("hasRole('ROLE_NORMAL')")
+           /**配置了 .anyRequest().authenticated() ，任何请求，访问的用户都需要经过认证。*/
+            // .anyRequest().authenticated()
+            .and()
+            //设置Form表单登录
+            .formLogin()
+            //登录URL地址
+                    .loginPage("/login")
+                .permitAll() //所有用户可访问
+            .and()
+            //配置退出相关
+            .logout()
+            //退出URL地址
+            .logoutUrl("/logout")
+    .permitAll(); //所有用户可访问
+}
+}
+```
 
 测试类
 
-```
+```java
 @RestController
 @RequestMapping("/demo")
 public class DemoController {
@@ -248,14 +250,14 @@ public class DemoController {
 
  
 
-```
+```java
 protected void configure(HttpSecurity http) throws Exception {
 	http
-		.authorizeRequests()                                                                1
-			.antMatchers("/resources/**", "/signup", "/about").permitAll()                  2
-			.antMatchers("/admin/**").hasRole("ADMIN")                                      3
-			.antMatchers("/db/**").access("hasRole('ADMIN') and hasRole('DBA')")            4
-			.anyRequest().authenticated()                                                   5
+		.authorizeRequests()                                                                
+			.antMatchers("/resources/**", "/signup", "/about").permitAll()                  
+			.antMatchers("/admin/**").hasRole("ADMIN")                                      
+			.antMatchers("/db/**").access("hasRole('ADMIN') and hasRole('DBA')")            
+			.anyRequest().authenticated()                                                   
 			.and()
 		// ...
 		.formLogin();

@@ -138,7 +138,7 @@ public native int hashCode();
 
  
 
-```
+```java
  1 public class TestStringDemo {
  2 
  3     public static void main(String[] args) {
@@ -356,7 +356,7 @@ System.out.println(a.equals(130));	//不可行，false，type为int，不会比�
 package com.luna.test;
 public class StringTest {
 	public static void main(String[] args) {
-	String str1 = "todo";
+		String str1 = "todo";
         String str2 = "todo";
         String str3 = "to";
         String str4 = "do";
@@ -387,7 +387,7 @@ public class StringTest {
 
   代码运行结果如下所示：
 
-```
+```java
 ------普通String测试结果------
 str1 == str2 ? true
 str1 == str5 ? false
@@ -411,7 +411,7 @@ str1 == str6.intern() ? true
 
 ## 4.String.intern() in JDK7
 
-​      **Jdk7将常量池从PermGen区（方法区？）移到了Java堆区**，执行intern操作时，如果常量池已经存在该字符串，则直接返回字符串引用，否则复制该字符串对象的引用到常量池中并返回。堆区的大小一般不受限，所以将常量池从PremGen区移到堆区使得常量池的使用不再受限于固定大小。除此之外，位于堆区的常量池中的对象可以被垃圾回收。当常量池中的字符串不再存在指向它的引用时，JVM就会回收该字符串。可以使用 -XX:StringTableSize 虚拟机参数设置字符串池的map大小。字符串池内部实现为一个HashMap，所以当能够确定程序中需要intern的字符串数目时，可以将该map的size设置为所需数目*2（减少hash冲突），这样就可以使得String.intern()每次都只需要常量时间和相当小的内存就能够将一个String存入字符串池中。
+​      **Jdk7将常量池从PermGen区（永久代）移到了Java堆区**，执行intern操作时，如果常量池已经存在该字符串，则直接返回字符串引用，否则复制该字符串对象的引用到常量池中并返回。堆区的大小一般不受限，所**以将常量池从PremGen区移到堆区使得常量池的使用不再受限于固定大小。除此之外，位于堆区的常量池中的对象可以被垃圾回收。**当常量池中的字符串不再存在指向它的引用时，JVM就会回收该字符串。可以使用 -XX:StringTableSize 虚拟机参数设置字符串池的map大小。字符串池内部实现为一个HashMap，所以当能够确定程序中需要intern的字符串数目时，可以将该map的size设置为所需数目*2（减少hash冲突），这样就可以使得String.intern()每次都只需要常量时间和相当小的内存就能够将一个String存入字符串池中。
 
 ## 5.intern()适用场景
 

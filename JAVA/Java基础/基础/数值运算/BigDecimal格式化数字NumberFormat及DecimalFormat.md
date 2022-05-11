@@ -12,7 +12,7 @@ public class Demo {
   System.out.println("结果是"+b);		//2.00
   //下面将结果转化成百分比
   NumberFormat percent = NumberFormat.getPercentInstance();
-       percent.setMaximumFractionDigits(2);
+       percent.setMaximumFractionDigits(2);		//用于设置数字的小数部分中允许的最大位数
 
    System.out.println(percent.format(b.doubleValue()));	//200%
 
@@ -54,6 +54,24 @@ b.scale(),返回的就是3.
 BigDecimal mData = new BigDecimal("9.655").setScale(2, BigDecimal.ROUND_HALF_UP);
         System.out.println("mData=" + mData);
 ----结果：----- mData=9.66
+
+
+
+## Java计算百分比补0和去0
+
+```java
+      //    getPercentInstance  百分比        
+        DecimalFormat numberFormat=(DecimalFormat)NumberFormat.getPercentInstance(Locale.CHINA);
+        //最多两个小数 大于两位小数最多显示两位    
+        numberFormat.setMaximumFractionDigits(2);
+        System.err.println("两位小数:"+numberFormat.format(0.9));	//结果 90%
+		System.err.println("两位小数:"+numberFormat.format(0.092310));	//结果 9.23%
+
+        //最少两个小数 不足两位小数必须补 0   
+        numberFormat.setMinimumFractionDigits(2);
+        System.err.println("两位小数:"+numberFormat.format(0.9));	//结果 90.00%
+
+```
 
 
 
