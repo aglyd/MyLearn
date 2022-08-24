@@ -149,7 +149,7 @@ MySQL 4.1版本及以上支持子查询
 ![img](SQL中的子查询.assets/2019032608551515.png)
 
 这两个表用WHERE子句正确联结：WHERE子句指示MySQL匹配vendors表中的vend_id和products表中的vend_id。注意：在引用的列可能出现二义性时，必须使用完全限定列名（用一个点分隔的表名和列名）。
-在一条SELECT语句中联结几个表时，相应的关系是在运行中构造的，在数据库表的定义中不存在能指示MySQL如何对表进行联结的东西。在联结两个表时，实际上是将第一个表中的每一行与第二个表中的每一行配对。WHERE子句作为过滤条件，它只包含那些匹配给定条件（这里是联结条件）的行。没有WHERE子句，第一个表中的每个行将与第二个表中的每个行配对，而不管它们逻辑上是否可以配在一起。
+在一条SELECT语句中联结几个表时，相应的关系是在运行中构造的，在数据库表的定义中不存在能指示MySQL如何对表进行联结的东西。在联结两个表时，实际上是将第一个表中的每一行与第二个表中的每一行配对。WHERE子句作为过滤条件，它只包含那些匹配给定条件（这里是联结条件）的行。**==没有WHERE子句，第一个表中的每个行将与第二个表中的每个行配对，而不管它们逻辑上是否可以配在一起。==**
 
 笛卡儿积：由没有联结条件的表关系返回的结果。检索出的行的数目将是第一个表中的行数乘以第二个表中的行数。有时也被称为叉联结。
 
@@ -366,3 +366,62 @@ select * from department where did= all(SELECT did from employee where name='赵
   **all子查询**：内层子查询返回的结果需同时**满足所有内层查询条件**。
   **比较运算符子查询：**子查询中可以使用的比较运算符如 “>” “<” “= ” “!=”
 
+
+
+
+
+# [子查询(三种方式)](https://blog.csdn.net/ASDFGQC/article/details/125096487)
+
+顾名思义就是[嵌套](https://so.csdn.net/so/search?q=嵌套&spm=1001.2101.3001.7020)查询
+
+子查询分为三种情况:
+1.单行单列 也就是结果是一个的 例如 1
+2.多行单列 也就是结果是一组的 例如(1,2,3)
+3.多行多列 也就是结果是一张表的 此不举例
+
+表结构如下：
+员工表emp
+![在这里插入图片描述](https://img-blog.csdnimg.cn/e945c25b84f04a82a11224f46561c420.png)
+部门表dept
+![在这里插入图片描述](https://img-blog.csdnimg.cn/6d7384c4ad9a4102bd35285ee09e43b0.png)
+
+## 情况1：单行单列
+
+查询薪资大于猪八戒的员工
+思考思路 1：查出猪八戒的薪资 2查询薪资大于结果1的
+
+```sql
+select salary  from emp where name='猪八戒'
+select * from emp where salary > ( select salary  from emp where name='猪八戒' )
+```
+
+结果如下:
+![在这里插入图片描述](https://img-blog.csdnimg.cn/88f7396d47b74bef9ceb5a5b110060e5.png)
+
+## 情况2: 多行单列
+
+查询财务部和市场部所有员工的信息
+思路 1：查出财务部和市场部的dep_id 结果集是一组
+2：查出dep_id在结果集1中的员工信息
+
+```sql
+select did from dept where  dname='财务部' or dname='市场部' 
+
+select * from emp where dep_id in(select did from dept where  dname='财务部' or dname='市场部' )
+```
+
+结果如下：
+![在这里插入图片描述](https://img-blog.csdnimg.cn/e9909792df07478aa2d37336ed9ad624.png)
+
+## 情况3：多行多列
+
+查询日期是’2011-11-11’之后的员工信息和部门信息
+思路 1：查询日期在’2011-11-11’之后的员工信息
+2：**==内连接==**查询出对应员工的部门信息
+
+```sql
+select * from emp where join_date>'2011-11-11'
+select * from (select * from emp where join_date>'2011-11-11') a,dept where a.dep_id =dept.did
+```
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/1cd520fb9ee342b7ba1561c743b7d687.png)

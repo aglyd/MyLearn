@@ -283,3 +283,25 @@ this is incompatible with sql_mode=only_full_group_by。
 例9：上面的查询中显示了以name分组的每组中所有的id。接下来我们要查询以name分组的所有组的id和score：
 
 ![img](u=3763989288,3669329342&fm=173&app=25&f=JPEG.jpeg)
+
+
+
+更新几种常用的拼接函数：
+在分析的过程中，难以避免遇到需要处理数据的情况，其中需要将几个字段或一个字段的几个值拼接在一起的情况，将几种函数的应用整理如下
+
+collect_set()
+collect_set()：通过collect_set会把每个字段所对应的值构建成一个以逗号分隔的数组返回
+与其他方式不同的是，collect_set 会对数组中的数据去重
+| dt | name_id |
+|20210101|1|
+|20210101 | 2 |
+|20210101 | 2 |
+
+
+> select dt,collect_set(name_id)
+> from A
+> group by dt ;
+>
+> 输出的即 20210101 [1,2]
+
+collect_list

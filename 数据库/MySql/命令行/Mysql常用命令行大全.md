@@ -42,7 +42,7 @@ show databases;
 
 ### 2、 显示库中的数据表：
 
-use mysql;
+use mysql;	//切换数据库为mysql
 
 show tables;
 
@@ -58,7 +58,7 @@ drop database 库名;
 
 ### 5、 建表：
 
-use 库名;
+use 库名;	//切换库
 
 create table 表名(字段列表);
 
@@ -258,7 +258,7 @@ USAGE: 只允许登录--其它什么也不允许做。
 　　查询当前用户：select user();
 　　查询数据库版本：select version();
 　　查询当前使用的数据库：select database();
- 
+
   用文本方式将数据装入一个数据库表
 
 　　如果一条一条地输入，很麻烦。我们可以用文本文件的方式将所有记录加入你的数据库表中。创建一个文本文件“mysql.txt”，每行包含一个记录，用定位符(tab)把值分开，并且以在CREATE TABLE语句中列出的列次序给出，例如：

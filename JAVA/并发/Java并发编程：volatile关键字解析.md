@@ -641,9 +641,12 @@ public class VolatileTest {
         while (true) { 
         VolatileCounter counter = new VolatileCounter(); 
         Thread thread1 = new Thread(() -> { for (int i = 0; i < 50; i++) { counter.inc(); } }); 
-        Thread thread2 = new Thread(() -> { for (int i = 0; i < 50; i++) { counter.dec(); } }); 		 		 thread1.start(); thread2.start(); 
+        Thread thread2 = new Thread(() -> { for (int i = 0; i < 50; i++) { counter.dec(); } }); 		 		 
+        thread1.start(); 
+        thread2.start(); 
         try { 
-        	thread1.join(); thread2.join(); 
+        	thread1.join(); 
+            thread2.join(); 	//等待thread1、thread2都执行完毕之后，获得counter的值
         	} catch (InterruptedException e) { 
         	e.printStackTrace(); 
        		} 

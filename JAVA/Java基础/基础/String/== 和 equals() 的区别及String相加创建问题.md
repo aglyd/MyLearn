@@ -411,11 +411,11 @@ str1 == str6.intern() ? true
 
 ## 4.String.intern() in JDK7
 
-​      **Jdk7将常量池从PermGen区（永久代）移到了Java堆区**，执行intern操作时，如果常量池已经存在该字符串，则直接返回字符串引用，否则复制该字符串对象的引用到常量池中并返回。堆区的大小一般不受限，所**以将常量池从PremGen区移到堆区使得常量池的使用不再受限于固定大小。除此之外，位于堆区的常量池中的对象可以被垃圾回收。**当常量池中的字符串不再存在指向它的引用时，JVM就会回收该字符串。可以使用 -XX:StringTableSize 虚拟机参数设置字符串池的map大小。字符串池内部实现为一个HashMap，所以当能够确定程序中需要intern的字符串数目时，可以将该map的size设置为所需数目*2（减少hash冲突），这样就可以使得String.intern()每次都只需要常量时间和相当小的内存就能够将一个String存入字符串池中。
+​      **Jdk7将常量池从PermGen区（永久代）移到了Java堆区**，执行intern操作时，如果常量池已经存在该字符串，则直接返回字符串引用，否则复制该字符串对象的引用到常量池中并返回。堆区的大小一般不受限，**所以将常量池从PremGen区移到堆区使得常量池的使用不再受限于固定大小。除此之外，位于堆区的常量池中的对象可以被垃圾回收。**当常量池中的字符串不再存在指向它的引用时，JVM就会回收该字符串。可以使用 -XX:StringTableSize 虚拟机参数设置字符串池的map大小。字符串池内部实现为一个HashMap，所以当能够确定程序中需要intern的字符串数目时，可以将该map的size设置为所需数目*2（减少hash冲突），这样就可以使得String.intern()每次都只需要常量时间和相当小的内存就能够将一个String存入字符串池中。
 
 ## 5.intern()适用场景
 
-​      Jdk6中常量池位于PermGen区，大小受限，所以不建议适用intern()方法，当需要字符串池时，需要自己使用HashMap实现。Jdk7、8中，常量池由PermGen区移到了堆区，还可以通过-XX:StringTableSize参数设置StringTable的大小，常量池的使用不再受限，由此可以重新考虑使用intern()方法。intern(）方法优点：执行速度非常快，直接使用==进行比较要比使用equals(）方法快很多；内存占用少。虽然intern()方法的优点看上去很诱人，但若不是在恰当的场合中使用该方法的话，便非但不能获得如此好处，反而还可能会有性能损失。下面程序对比了使用intern()方法和未使用intern()方法存储100万个String时的性能，从输出结果可以看出，若是单纯使用intern()方法进行数据存储的话，程序运行时间要远高于未使用intern()方法时：
+​      Jdk6中常量池位于PermGen区，大小受限，所以不建议适用intern()方法，当需要字符串池时，需要自己使用HashMap实现。Jdk7、8中，常量池由PermGen区移到了堆区，还可以通过-XX:StringTableSize参数设置StringTable的大小，常量池的使用不再受限，由此可以重新考虑使用intern()方法。**intern(）方法优点：执行速度非常快，直接使用==进行比较要比使用equals(）方法快很多；内存占用少。**虽然intern()方法的优点看上去很诱人，但若不是在恰当的场合中使用该方法的话，便非但不能获得如此好处，反而还可能会有性能损失。下面程序对比了使用intern()方法和未使用intern()方法存储100万个String时的性能，从输出结果可以看出，若是单纯使用intern()方法进行数据存储的话，程序运行时间要远高于未使用intern()方法时：
 
 ```java
 public class InternTest {
@@ -451,11 +451,11 @@ noIntern: 48    // 未使用intern方法时，存储100万个String所需时间
 intern: 99      // 使用intern方法时，存储100万个String所需时间
 ```
 
-​      由于intern()操作每次都需要与常量池中的数据进行比较以查看常量池中是否存在等值数据，同时JVM需要确保常量池中的数据的唯一性，这就涉及到加锁机制，这些操作都是有需要占用CPU时间的，所以如果进行intern操作的是大量不会被重复利用的String的话，则有点得不偿失。由此可见，String.intern()主要 适用于只有有限值，并且这些有限值会被重复利用的场景，如数据库表中的列名、人的姓氏、编码类型等。
+​      **由于intern()操作每次都需要与常量池中的数据进行==比较以查看常量池中是否存在等值数据，==同时JVM需要确保常量池中的数据的唯一性，这就涉及到加锁机制，这些操作都是有需要占用CPU时间的，所以如果进行intern操作的是==大量不会被重复利用==的String的话，则有点得不偿失。**由此可见，**==String.intern()主要适用于只有有限值，并且这些有限值会被重复利用的场景，==**如数据库表中的列名、人的姓氏、编码类型等。
 
 ## 6.总结：
 
-​      String.intern()方法是一种手动将字符串加入常量池中的方法，原理如下：如果在常量池中存在与调用intern()方法的字符串等值的字符串，就直接返回常量池中相应字符串的引用，否则在常量池中复制一份该字符串，并将其引用返回（Jdk7中会直接在常量池中保存当前字符串的引用）；Jdk6 中常量池位于PremGen区，大小受限，不建议使用String.intern()方法，不过Jdk7 将常量池移到了Java堆区，大小可控，可以重新考虑使用String.intern()方法，但是由对比测试可知，使用该方法的耗时不容忽视，所以需要慎重考虑该方法的使用；String.intern()方法主要适用于程序中需要保存有限个会被反复使用的值的场景，这样可以减少内存消耗，同时在进行比较操作时减少时耗，提高程序性能。
+​      String.intern()方法是一种手动将字符串加入常量池中的方法，原理如下：如果在常量池中存在与调用intern()方法的字符串等值的字符串，就直接返回常量池中相应字符串的引用，否则在常量池中复制一份该字符串，并将其引用返回（Jdk7中会直接在常量池中保存当前字符串的引用）；J**dk6 中常量池位于PremGen区，大小受限，不建议使用String.intern()方法，**不过Jdk7 将常量池移到了Java堆区，大小可控，可以重新考虑使用String.intern()方法，但是由对比测试可知，使用该方法的耗时不容忽视，所以需要慎重考虑该方法的使用；**String.intern()方法主要适用于程序中需要保存有限个会被反复使用的值的场景，这样可以减少内存消耗，同时在进行比较操作时减少时耗，提高程序性能。**
 
 ------------------------------------------------
 
@@ -490,8 +490,8 @@ intern: 99      // 使用intern方法时，存储100万个String所需时间
     （1）节省内存空间：常量池中所有相同的字符串常量被合并，只占用一个空间。
     （2）节省运行时间：比较字符串时，==比equals()快。对于两个引用变量，只用==判断引用是否相等，也就可以判断实际值是否相等。
 3. **双等号==的含义**
-    基本数据类型之间应用双等号，比较的是他们的数值。
-    复合数据类型(类)之间应用双等号，比较的是他们在内存中的存放地址。
+    **基本数据类型之间应用双等号，比较的是他们的数值。**
+    复合数据类型(类)之间应用双等号，比较的是他们在**内存中的存放地址。**
 
 ## 3、8种基本类型的包装类和常量池
 
@@ -604,8 +604,8 @@ i4=i5+i6   true
  **只要使用new方法，便需要创建新的对象。**
 
 1. **连接表达式 +**
-    （1）只有使用引号包含文本的方式创建的String对象之间使用“+”连接产生的新对象才会被加入字符串池中。（直接+会生成常量）
-    （2）对于所有包含new方式新建对象（包括null）的“+”连接表达式，它所产生的新对象都不会被加入字符串池中。（间接+生成变量）
+    （1）只有使用**引号**包含文本的方式创建的String对象之间使用“+”连接产生的新对象才会被**加入字符串池中**。（直接+会生成常量）
+    （2）**对于所有包含new方式新建对象（包括null）的“+”连接表达式，它所产生的新对象都不会被加入字符串池中。只会放入堆空间（间接+生成变量）**
 
 
 
@@ -642,7 +642,7 @@ public static void main(String[] args) {
 s等于t，它们是同一个对象
 ```
 
-A和B都是常量，值是固定的，因此s的值也是固定的，它在类被编译时就已经确定了。也就是说：String s=A+B;  等同于：String s="ab"+"cd";
+A和B都是常量，值是固定的，因此s的值也是固定的，它在**类被编译时就已经确定了**。也就是说：String s=A+B;  等同于：String s="ab"+"cd";
 
 
 
@@ -657,7 +657,7 @@ static {
  }   
  public static void main(String[] args) {   
     // 将两个常量用+连接对s进行初始化   
-     String s = A + B;   
+     String s = A + B;   	//创建了一个堆对象，字符串不会放入常量池中
      String t = "abcd";   
     if (s == t) {   
          System.out.println("s等于t，它们是同一个对象");   
@@ -668,12 +668,12 @@ static {
 s不等于t，它们不是同一个对象
 ```
 
-A和B虽然被定义为常量，但是它们都没有马上被赋值。在运算出s的值之前，他们何时被赋值，以及被赋予什么样的值，都是个变数。因此A和B在被赋值之前，性质类似于一个变量。那么s就不能在编译期被确定，而只能在运行时被创建了。
+A和B虽然被定义为常量，但是它们都没有马上被赋值。在运算出s的值之前，他们何时被赋值，以及被赋予什么样的值，都是个变数。因此A和B在被赋值之前，性质类似于一个变量。那么**s就不能在编译期被确定，而只能在运行时被创建了。**
 
 1. `String s1 = new String("xyz");` **创建了几个对象？ **
     考虑类加载阶段和实际执行时。
     （1）类加载对一个类只会进行一次。"xyz"在类加载时就已经创建并驻留了（如果该类被加载之前已经有"xyz"字符串被驻留过则不需要重复创建用于驻留的"xyz"实例）。驻留的字符串是放在全局共享的字符串常量池中的。
-    （2）在这段代码后续被运行的时候，"xyz"字面量对应的String实例已经固定了，不会再被重复创建。所以这段代码将常量池中的对象复制一份放到heap中，并且把heap中的这个对象的引用交给s1 持有。
+    （2）在这段代码后续被运行的时候，"xyz"字面量对应的String实例已经固定了，不会再被重复创建。所以这段代码将常量池中的对象复制一份放到**heap**中，并且把heap中的这个对象的引用交给s1 持有。
     这条语句创建了2个对象。
 2. **java.lang.String.intern()**
     运行时常量池相对于CLass文件常量池的另外一个重要特征是**具备动态性**，Java语言并不要求常量一定只有编译期才能产生，也就是并非预置入CLass文件中常量池的内容才能进入方法区运行时常量池，运行期间也可能将新的常量放入池中，这种特性被开发人员利用比较多的就是**String类的intern()**方法。
@@ -686,16 +686,38 @@ public static void main(String[] args) {
       String s1 = new String("计算机");
       String s2 = s1.intern();
       String s3 = "计算机";
-      System.out.println("s1 == s2? " + (s1 == s2));
-      System.out.println("s3 == s2? " + (s3 == s2));
+      System.out.println("s1 == s2? " + (s1 == s2));	//false
+      System.out.println("s3 == s2? " + (s3 == s2));	//true
   }
 ```
 
-
-
 ```java
-s1 == s2? false
-s3 == s2? true
+public class stringTest {
+//    public static final String A= "ab"; // 常量A
+//    public static final String B= "cd";    // 常量B
+//    static {
+//        A = "ab";
+//        B = "cd";
+//    }
+public static void main(String[] args) {
+String A = "ab";
+String B = "cd";
+// 将两个常量用+连接对s进行初始化
+String s = A + B;
+String t = "abcd";
+if (s == t) {
+System.out.println("s等于t，它们是同一个对象");
+} else {
+System.out.println("s不等于t，它们不是同一个对象");
+}
+
+
+        String str2 = new StringBuilder("计算机a").append("软件n").toString();
+        System.out.println(str2.intern() == str2);  //该字符串首次出现会将自身地址放入常量池中
+        String str1 = new StringBuilder("ab").append("cd").toString();
+        System.out.println(str1.intern() == str1);  //abcd已经在常量池中有了地址，前者返回的是常量池地址，后者是堆中新创建的字符串对象地址
+    }
+}
 ```
 
 1. **字符串比较更丰富的一个例子**
@@ -706,12 +728,12 @@ s3 == s2? true
 public class Test {
  public static void main(String[] args) {   
       String hello = "Hello", lo = "lo";
-      System.out.println((hello == "Hello") + " ");
-      System.out.println((Other.hello == hello) + " ");
-      System.out.println((other.Other.hello == hello) + " ");
-      System.out.println((hello == ("Hel"+"lo")) + " ");
-      System.out.println((hello == ("Hel"+lo)) + " ");
-      System.out.println(hello == ("Hel"+lo).intern());
+      System.out.println((hello == "Hello") + " ");		//true,在同包同类下,引用自同一String对象.
+      System.out.println((Other.hello == hello) + " ");	//true,在同包不同类下,引用自同一String对象.
+      System.out.println((other.Other.hello == hello) + " ");//true,在不同包不同类下,依然引用自同一String对象.
+      System.out.println((hello == ("Hel"+"lo")) + " ");//true,在编译成.class时能够识别为同一字符串的,自动优化成常量,引用自同一String对象.
+      System.out.println((hello == ("Hel"+lo)) + " ");//false,在运行时创建的字符串具有独立的内存地址,所以不引用自同一String对象.
+      System.out.println(hello == ("Hel"+lo).intern());//true,返回了常量池中相同字符串的地址，比较出了常量池中所有字符串的值找出来的该唯一对象
  }   
 }
 class Other { static String hello = "Hello"; }

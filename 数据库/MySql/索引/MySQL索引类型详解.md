@@ -80,6 +80,52 @@ CREATE UNIQUE INDEX index_id ON tb_student(id);
 
 创建主键索引通常使用 PRIMARY KEY 关键字。不能使用 CREATE INDEX 语句创建主键索引。
 
+
+
+> 创建方法：
+>
+> 联合主键，指的是把两个列看成是一个整体，这个整体是不为空，唯一，不重复
+>
+> 1.创建表的同时创建联合主键
+>
+> 格式:
+>
+> create table 表名(
+>
+> 列名1 数据类型,
+>
+> 列名2 数据类型,
+>
+> constraint  主键约束的名字  primary key(列名1,列名2)
+>
+> );
+>
+> 格式三：
+>
+> create table 表名(
+>
+> 列名1 数据类型,
+>
+> 列名2 数据类型,
+>
+> primary key(列名1,列名2)
+>
+> );
+>
+> 2.针对已经存在表，添加联合主键
+>
+> 格式：alter table 表名 add primary key(列名1,列名2);
+>
+> 格式：alter table 表名 add constraint 主键约束的名字 primary key(列名1,列名2);
+>
+> 3.删除主键约束格式：alter table 表名 drop primary key;
+>
+> 
+>
+> 注意：在可视化界面，如Navicat设置联合主键时，可能会被当做两个独立主键处理，从而在插入数据时产生问题。这时候只要导出sql文件再直接改代码即可解决问题。
+
+
+
 #### 4) 空间索引
 
 空间索引是对空间数据类型的字段建立的索引，使用 SPATIAL 关键字进行扩展。

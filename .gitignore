@@ -13,3 +13,7 @@
 *.PDF
 *.ZIP
 *.bmp
+*.rar
+*.RAR
+
+/电子书籍

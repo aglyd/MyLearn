@@ -866,9 +866,9 @@ insert into t_demo values(7, '芒果', 4200);
 insert into t_demo values(8, '芒果', 5500); 
 ```
 
-![img](重温SQL——行转列，列转行.assets/70.png)
+![image-20220608180050097](重温SQL——行转列，列转行.assets/image-20220608180050097.png)
 
-2、Pivot行转多列
+**==2、Pivot行转多列==**
 
 ```sql
 select * 
@@ -876,7 +876,24 @@ from (select name, nums from t_demo)
 pivot (sum(nums) total,min(nums) min for name in ('苹果' apple, '橘子' orange, '葡萄' grape, '芒果' mango));
 ```
 
-![img](重温SQL——行转列，列转行.assets/70.png)
+![image-20220608180016416](重温SQL——行转列，列转行.assets/image-20220608180016416.png)
+
+例：
+
+```mysql
+select PROJECT,nvl("202112_AMT",0) AMT1,nvl("202112_RATIO",0) RATIO1,nvl("202201_AMT",0) AMT2,nvl("202201_RATIO",0) RATIO2 from (select PROJECT,TOTAL_RENT_RECEIVABLE,MONTH_WID,RATIO from TF_MRHBZL_YMZTZLZC where REPORT_TYPE = 2)
+    pivot(max(TOTAL_RENT_RECEIVABLE) AMT,max(ratio) RATIO for MONTH_WID in(202201,202112)) order by PROJECT;
+```
+
+结果：
+
+```
+project    || AMT1 || RATIO1 || AMT2 	 || RATIO2
+基础设施投资 || 0    ||  0	 || 23432.34 || 0.062
+冶金建设	|| 0	||	0	  || 4324.43   ||0.021
+```
+
+
 
 ## Unpivot
 
@@ -889,7 +906,7 @@ from (select name, nums from t_demo)
 pivot (sum(nums) total,min(nums) min for name in ('苹果' apple, '橘子' orange, '葡萄' grape, '芒果' mango));
 ```
 
-![img](重温SQL——行转列，列转行.assets/70.png)
+![image-20220608180016416](重温SQL——行转列，列转行.assets/image-20220608180016416.png)
 
 2.列转行
 
@@ -914,5 +931,5 @@ unpivot((total,min) for name in ((APPLE_TOTAL,APPLE_MIN) AS '苹果',
 
 ```
 
-![img](重温SQL——行转列，列转行.assets/70.png)
+![image-20220608175946286](重温SQL——行转列，列转行.assets/image-20220608175946286.png)
 

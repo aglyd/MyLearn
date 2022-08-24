@@ -1,6 +1,7 @@
 # [ThreadPoolTaskExecutor和ThreadPoolExecutor区别][https://blog.csdn.net/weixin_40971059/article/details/105177192]
 
-ThreadPoolExecutor
+## 1、ThreadPoolExecutor
+
 这个类是JDK中的线程池类，继承自Executor， Executor 顾名思义是专门用来处理多线程相关的一个接口，所有县城相关的类都实现了这个接口，里面有一个execute()方法，用来执行线程，线程池主要提供一个线程队列，队列中保存着所有等待状态的线程。避免了创建与销毁的额外开销，提高了响应的速度。相关的继承实现类图如下。
 
 ![img](https://img-blog.csdnimg.cn/20190728135341226.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MzE2ODAxMA==,size_16,color_FFFFFF,t_70)
@@ -76,7 +77,7 @@ ScheduledExecutorService newScheduledThreadPool() : 创建固定大小的线程�
 
 当然，我们也可以直接new ThreadPoolExecutor的构造方法来创建线程池，传入需要的参数。
 
-2.ThreadPoolTaskExecutor
+## 2.ThreadPoolTaskExecutor
 
 这个类则是spring包下的，是sring为我们提供的线程池类，这里重点讲解这个类的用法，可以使用基于xml配置的方式创建
 
@@ -97,7 +98,7 @@ ScheduledExecutorService newScheduledThreadPool() : 创建固定大小的线程�
     </bean>
 然后通过自动注入的方式注入线程池，
 
-```
+```java
 @Resource(name="taskExecutor")
 ThreadPoolTaskExecutor taskExecutor;
 // 或者可以直接@Autowried
@@ -107,21 +108,23 @@ ThreadPoolTaskExecutor taskExecutor
 
 或者是通过配置类的方式配置线程池，然后注入。
 
-    @Configuration
-    public class ExecturConfig {
-        @Bean("taskExector")
-        public Executor taskExector() {
-        
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        int i = Runtime.getRuntime().availableProcessors();//获取到服务器的cpu内核
-        executor.setCorePoolSize(5);//核心池大小
-        executor.setMaxPoolSize(100);//最大线程数
-        executor.setQueueCapacity(1000);//队列程度
-        executor.setKeepAliveSeconds(1000);//线程空闲时间
-        executor.setThreadNamePrefix("tsak-asyn");//线程前缀名称
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());//配置拒绝策略
-        return executor;
-    }
+```java
+@Configuration
+public class ExecturConfig {
+    @Bean("taskExector")
+    public Executor taskExector() {
+    
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    int i = Runtime.getRuntime().availableProcessors();//获取到服务器的cpu内核
+    executor.setCorePoolSize(5);//核心池大小
+    executor.setMaxPoolSize(100);//最大线程数
+    executor.setQueueCapacity(1000);//队列程度
+    executor.setKeepAliveSeconds(1000);//线程空闲时间
+    executor.setThreadNamePrefix("tsak-asyn");//线程前缀名称
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());//配置拒绝策略
+    return executor;
+}
+```
 
 上面注解中已经注释了参数的详解，这里重点讲解一下spring线程池的拒绝策略和处理流程。
 
@@ -170,7 +173,7 @@ CachedThreadPool：线程数根据任务动态调整的线程池；
 SingleThreadExecutor：仅单线程执行的线程池。
 使用这些实现类的方法也会类似于：
 
-```
+```java
 ExecutorService executor = Executors.newFixedThreadPool(3);
 ```
 
@@ -192,7 +195,7 @@ ExecutorService executor = Executors.newFixedThreadPool(3);
 
 再来看一下源码：
 
-```
+```java
 public class ThreadPoolTaskExecutor extends ExecutorConfigurationSupport implements AsyncListenableTaskExecutor, SchedulingTaskExecutor {
     private final Object poolSizeMonitor = new Object();
     private int corePoolSize = 1;
@@ -209,16 +212,18 @@ public class ThreadPoolTaskExecutor extends ExecutorConfigurationSupport impleme
 
 ThreadPoolTashExecutor类会根据配置设置 threadPoolExecutor 的一些参数，例如：
 
-    //设置线程池维护线程的最小数量
-    	public void setCorePoolSize(int corePoolSize) {
-        synchronized(this.poolSizeMonitor) {
-            this.corePoolSize = corePoolSize;
-            if (this.threadPoolExecutor != null) {
-                this.threadPoolExecutor.setCorePoolSize(corePoolSize);
-            }
-    
+```java
+//设置线程池维护线程的最小数量
+	public void setCorePoolSize(int corePoolSize) {
+    synchronized(this.poolSizeMonitor) {
+        this.corePoolSize = corePoolSize;
+        if (this.threadPoolExecutor != null) {
+            this.threadPoolExecutor.setCorePoolSize(corePoolSize);
         }
+
     }
+}
+```
 
 ThreadPoolExecutor 池子的处理流程如下：
 
