@@ -4,7 +4,7 @@
 
  
 
-```
+```java
     /** 
 ​     \* 将字符串写入指定文件(当指定的父路径中文件夹不存在时，会最大限度去创建，以保证保存成功！) 
 ​     \* 
@@ -50,7 +50,7 @@
 
 二、文件转换为字符串
 
-```
+```java
     /** 
      \* 文本文件转换为指定编码的字符串 
      \* 
@@ -63,7 +63,7 @@
         InputStreamReader reader = null; 
         StringWriter writer = new StringWriter(); 
          try { 
-             if (encoding == null || "".equals(encoding.trim())) { 
+             if (!(encoding == null || "".equals(encoding.trim()))) { 
                 reader = new InputStreamReader( new FileInputStream(file), encoding); 
             } else { 
                 reader = new InputStreamReader( new FileInputStream(file)); 

@@ -26,9 +26,9 @@ redis实现自动幂等的原理图：
 >
 >   
 >
-> ​    org.springframework.bootgroupId>
+>    <groupId> org.springframework.boot</groupId>
 >
-> ​    spring-boot-starter-data-redisartifactId>
+>    <artifactId>spring-boot-starter-data-redis</artifactId>
 >
 >   
 >
@@ -36,9 +36,9 @@ redis实现自动幂等的原理图：
 >
 >  
 >
-> ​    org.springframework.bootgroupId>
+>   <groupId> org.springframework.boot</groupId>
 >
-> ​    spring-boot-starter-webartifactId>
+> ​    <artifactId>spring-boot-starter-web</artifactId>
 >
 >   
 >
@@ -54,8 +54,90 @@ redis实现自动幂等的原理图：
 
 2，引入springboot中到的redis的stater，或者Spring封装的jedis也可以，后面主要用到的api就是它的set方法和exists方法,这里我们使用springboot的封装好的redisTemplate
 
-```
-/** * redis工具类 */@Componentpublic class RedisService {  @Autowired  private RedisTemplate redisTemplate;  /**   * 写入缓存   * @param key   * @param value   * @return   */  public boolean set(final String key, Object value) {    boolean result = false;    try {      ValueOperations operations = redisTemplate.opsForValue();      operations.set(key, value);      result = true;    } catch (Exception e) {      e.printStackTrace();    }    return result;  }  /**   * 写入缓存设置时效时间   * @param key   * @param value   * @return   */  public boolean setEx(final String key, Object value, Long expireTime) {    boolean result = false;    try {      ValueOperations operations = redisTemplate.opsForValue();      operations.set(key, value);      redisTemplate.expire(key, expireTime, TimeUnit.SECONDS);      result = true;    } catch (Exception e) {      e.printStackTrace();    }    return result;  }  /**   * 判断缓存中是否有对应的value   * @param key   * @return   */  public boolean exists(final String key) {    return redisTemplate.hasKey(key);  }  /**   * 读取缓存   * @param key   * @return   */  public Object get(final String key) {    Object result = null;    ValueOperations operations = redisTemplate.opsForValue();    result = operations.get(key);    return result;  }  /**   * 删除对应的value   * @param key   */  public boolean remove(final String key) {    if (exists(key)) {      Boolean delete = redisTemplate.delete(key);      return delete;    }    return false;  }}
+```java
+/**
+ * redis工具类
+ */
+@Component
+public class RedisService {
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    /**
+     * 写入缓存
+     * @param key
+     * @param value
+     * @return
+     */
+    public boolean set(final String key, Object value) {
+        boolean result = false;
+        try {
+            ValueOperations operations = redisTemplate.opsForValue();
+            operations.set(key, value);
+            result = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+    /**
+     * 写入缓存设置时效时间
+     * @param key
+     * @param value
+     * @return
+     */
+    public boolean setEx(final String key, Object value, Long expireTime) {
+        boolean result = false;
+        try {
+            ValueOperations operations = redisTemplate.opsForValue();
+            operations.set(key, value);
+            redisTemplate.expire(key, expireTime, TimeUnit.SECONDS);
+            result = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+    /**
+     * 判断缓存中是否有对应的value
+     * @param key
+     * @return
+     */
+    public boolean exists(final String key) {
+        return redisTemplate.hasKey(key);
+    }
+
+    /**
+     * 读取缓存
+     * @param key
+     * @return
+     */
+    public Object get(final String key) {
+        Object result = null;
+        ValueOperations operations = redisTemplate.opsForValue();
+        result = operations.get(key);
+        return result;
+    }
+
+    /**
+     * 删除对应的value
+     * @param key
+     */
+    public boolean remove(final String key) {
+        if (exists(key)) {
+            Boolean delete = redisTemplate.delete(key);
+            return delete;
+        }
+        return false;
+
+    }
+
+}
 ```
 
 ## 二、自定义注解AutoIdempotent
@@ -64,8 +146,12 @@ redis实现自动幂等的原理图：
 
 后台利用反射如果扫描到这个注解，就会处理这个方法实现自动幂等，使用元注解ElementType.METHOD表示它只能放在方法上，etentionPolicy.RUNTIME表示它在运行时
 
-```
-@Target({ElementType.METHOD})@Retention(RetentionPolicy.RUNTIME)public @interface AutoIdempotent {}
+```java
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface AutoIdempotent {
+
+}
 ```
 
 ## 三、token创建和检验
@@ -76,8 +162,23 @@ redis实现自动幂等的原理图：
 
 主要作用就是获取header里面的token,然后检验，通过抛出的Exception来获取具体的报错信息返回给前端
 
-```
-public interface TokenService {  /**   * 创建token   * @return   */  public String createToken();  /**   * 检验token   * @param request   * @return   */  public boolean checkToken(HttpServletRequest request) throws Exception;}
+```java
+public interface TokenService {
+
+    /**
+     * 创建token
+     * @return
+     */
+    public  String createToken();
+
+    /**
+     * 检验token
+     * @param request
+     * @return
+     */
+    public boolean checkToken(HttpServletRequest request) throws Exception;
+
+}
 ```
 
 ### 2，token的服务实现类
@@ -86,22 +187,167 @@ token引用了redis服务，创建token采用随机算法工具类生成随机uu
 
 checkToken方法就是从header中获取token到值(如果header中拿不到，就从paramter中获取)，如若不存在,直接抛出异常。这个异常信息可以被拦截器捕捉到，然后返回给前端。
 
-```
-@Servicepublic class TokenServiceImpl implements TokenService {  @Autowired  private RedisService redisService;  /**   * 创建token   *   * @return   */  @Override  public String createToken() {    String str = RandomUtil.randomUUID();    StrBuilder token = new StrBuilder();    try {      token.append(Constant.Redis.TOKEN_PREFIX).append(str);      redisService.setEx(token.toString(), token.toString(),10000L);      boolean notEmpty = StrUtil.isNotEmpty(token.toString());      if (notEmpty) {        return token.toString();      }    }catch (Exception ex){      ex.printStackTrace();    }    return null;  }  /**   * 检验token   *   * @param request   * @return   */  @Override  public boolean checkToken(HttpServletRequest request) throws Exception {    String token = request.getHeader(Constant.TOKEN_NAME);    if (StrUtil.isBlank(token)) {// header中不存在token      token = request.getParameter(Constant.TOKEN_NAME);      if (StrUtil.isBlank(token)) {// parameter中也不存在token        throw new ServiceException(Constant.ResponseCode.ILLEGAL_ARGUMENT, 100);      }    }    if (!redisService.exists(token)) {      throw new ServiceException(Constant.ResponseCode.REPETITIVE_OPERATION, 200);    }    boolean remove = redisService.remove(token);    if (!remove) {      throw new ServiceException(Constant.ResponseCode.REPETITIVE_OPERATION, 200);    }    return true;  }}
+```java
+@Service
+public class TokenServiceImpl implements TokenService {
+
+    @Autowired
+    private RedisService redisService;
+
+
+    /**
+     * 创建token
+     *
+     * @return
+     */
+    @Override
+    public String createToken() {
+        String str = RandomUtil.randomUUID();
+        StrBuilder token = new StrBuilder();
+        try {
+            token.append(Constant.Redis.TOKEN_PREFIX).append(str);
+            redisService.setEx(token.toString(), token.toString(),10000L);
+            boolean notEmpty = StrUtil.isNotEmpty(token.toString());
+            if (notEmpty) {
+                return token.toString();
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+
+    /**
+     * 检验token
+     *
+     * @param request
+     * @return
+     */
+    @Override
+    public boolean checkToken(HttpServletRequest request) throws Exception {
+
+        String token = request.getHeader(Constant.TOKEN_NAME);
+        if (StrUtil.isBlank(token)) {// header中不存在token
+            token = request.getParameter(Constant.TOKEN_NAME);
+            if (StrUtil.isBlank(token)) {// parameter中也不存在token
+                throw new ServiceException(Constant.ResponseCode.ILLEGAL_ARGUMENT, 100);
+            }
+        }
+
+        if (!redisService.exists(token)) {
+            throw new ServiceException(Constant.ResponseCode.REPETITIVE_OPERATION, 200);
+        }
+
+        boolean remove = redisService.remove(token);
+        if (!remove) {
+            throw new ServiceException(Constant.ResponseCode.REPETITIVE_OPERATION, 200);
+        }
+        return true;
+    }
+}	
 ```
 
 ## 四、拦截器的配置
 
 1，web配置类，实现WebMvcConfigurerAdapter，主要作用就是添加autoIdempotentInterceptor到配置类中，这样我们到拦截器才能生效，注意使用@Configuration注解，这样在容器启动是时候就可以添加进入context中
 
-```
-@Configurationpublic class WebConfiguration extends WebMvcConfigurerAdapter {  @Resource  private AutoIdempotentInterceptor autoIdempotentInterceptor;  /**   * 添加拦截器   * @param registry   */  @Override  public void addInterceptors(InterceptorRegistry registry) {    registry.addInterceptor(autoIdempotentInterceptor);    super.addInterceptors(registry);  }}
+```java
+@Configuration
+public class WebConfiguration extends WebMvcConfigurerAdapter {
+
+    @Resource
+   private AutoIdempotentInterceptor autoIdempotentInterceptor;
+
+    /**
+     * 添加拦截器
+     * @param registry
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(autoIdempotentInterceptor);
+        super.addInterceptors(registry);
+    }
+}
 ```
 
 2，拦截处理器：主要的功能是拦截扫描到AutoIdempotent到注解到方法,然后调用tokenService的checkToken()方法校验token是否正确，如果捕捉到异常就将异常信息渲染成json返回给前端
 
-```
-/** * 拦截器 */@Componentpublic class AutoIdempotentInterceptor implements HandlerInterceptor {  @Autowired  private TokenService tokenService;  /**   * 预处理   *   * @param request   * @param response   * @param handler   * @return   * @throws Exception   */  @Override  public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {    if (!(handler instanceof HandlerMethod)) {      return true;    }    HandlerMethod handlerMethod = (HandlerMethod) handler;    Method method = handlerMethod.getMethod();    //被ApiIdempotment标记的扫描    AutoIdempotent methodAnnotation = method.getAnnotation(AutoIdempotent.class);    if (methodAnnotation != null) {      try {        return tokenService.checkToken(request);// 幂等性校验, 校验通过则放行, 校验失败则抛出异常, 并通过统一异常处理返回友好提示      }catch (Exception ex){        ResultVo failedResult = ResultVo.getFailedResult(101, ex.getMessage());        writeReturnJson(response, JSONUtil.toJsonStr(failedResult));        throw ex;      }    }    //必须返回true,否则会被拦截一切请求    return true;  }  @Override  public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {  }  @Override  public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {  }  /**   * 返回的json值   * @param response   * @param json   * @throws Exception   */  private void writeReturnJson(HttpServletResponse response, String json) throws Exception{    PrintWriter writer = null;    response.setCharacterEncoding("UTF-8");    response.setContentType("text/html; charset=utf-8");    try {      writer = response.getWriter();      writer.print(json);    } catch (IOException e) {    } finally {      if (writer != null)        writer.close();    }  }}
+```java
+/**
+ * 拦截器
+ */
+@Component
+public class AutoIdempotentInterceptor implements HandlerInterceptor {
+
+    @Autowired
+    private TokenService tokenService;
+
+    /**
+     * 预处理
+     *
+     * @param request
+     * @param response
+     * @param handler
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+
+        if (!(handler instanceof HandlerMethod)) {
+            return true;
+        }
+        HandlerMethod handlerMethod = (HandlerMethod) handler;
+        Method method = handlerMethod.getMethod();
+        //被ApiIdempotment标记的扫描
+        AutoIdempotent methodAnnotation = method.getAnnotation(AutoIdempotent.class);
+        if (methodAnnotation != null) {
+            try {
+                return tokenService.checkToken(request);// 幂等性校验, 校验通过则放行, 校验失败则抛出异常, 并通过统一异常处理返回友好提示
+            }catch (Exception ex){
+                ResultVo failedResult = ResultVo.getFailedResult(101, ex.getMessage());
+                writeReturnJson(response, JSONUtil.toJsonStr(failedResult));
+                throw ex;
+            }
+        }
+        //必须返回true,否则会被拦截一切请求
+        return true;
+    }
+
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+
+    }
+
+    /**
+     * 返回的json值
+     * @param response
+     * @param json
+     * @throws Exception
+     */
+    private void writeReturnJson(HttpServletResponse response, String json) throws Exception{
+        PrintWriter writer = null;
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("text/html; charset=utf-8");
+        try {
+            writer = response.getWriter();
+            writer.print(json);
+
+        } catch (IOException e) {
+        } finally {
+            if (writer != null)
+                writer.close();
+        }
+    }
+
+}
 ```
 
 ## 五、测试用例
@@ -110,8 +356,43 @@ checkToken方法就是从header中获取token到值(如果header中拿不到，�
 
 首先我们需要通过/get/token路径通过getToken()方法去获取具体的token，然后我们调用testIdempotence方法，这个方法上面注解了@AutoIdempotent，拦截器会拦截所有的请求，当判断到处理的方法上面有该注解的时候，就会调用TokenService中的checkToken()方法，如果捕获到异常会将异常抛出调用者，下面我们来模拟请求一下：
 
-```
-@RestControllerpublic class BusinessController {  @Resource  private TokenService tokenService;  @Resource  private TestService testService;  @PostMapping("/get/token")  public String getToken(){    String token = tokenService.createToken();    if (StrUtil.isNotEmpty(token)) {      ResultVo resultVo = new ResultVo();      resultVo.setCode(Constant.code_success);      resultVo.setMessage(Constant.SUCCESS);      resultVo.setData(token);      return JSONUtil.toJsonStr(resultVo);    }    return StrUtil.EMPTY;  }  @AutoIdempotent  @PostMapping("/test/Idempotence")  public String testIdempotence() {    String businessResult = testService.testIdempotence();    if (StrUtil.isNotEmpty(businessResult)) {      ResultVo successResult = ResultVo.getSuccessResult(businessResult);      return JSONUtil.toJsonStr(successResult);    }    return StrUtil.EMPTY;  }}
+```java
+@RestController
+public class BusinessController {
+
+
+    @Resource
+    private TokenService tokenService;
+
+    @Resource
+    private TestService testService;
+
+
+    @PostMapping("/get/token")
+    public String  getToken(){
+        String token = tokenService.createToken();
+        if (StrUtil.isNotEmpty(token)) {
+            ResultVo resultVo = new ResultVo();
+            resultVo.setCode(Constant.code_success);
+            resultVo.setMessage(Constant.SUCCESS);
+            resultVo.setData(token);
+            return JSONUtil.toJsonStr(resultVo);
+        }
+        return StrUtil.EMPTY;
+    }
+
+
+    @AutoIdempotent
+    @PostMapping("/test/Idempotence")
+    public String testIdempotence() {
+        String businessResult = testService.testIdempotence();
+        if (StrUtil.isNotEmpty(businessResult)) {
+            ResultVo successResult = ResultVo.getSuccessResult(businessResult);
+            return JSONUtil.toJsonStr(successResult);
+        }
+        return StrUtil.EMPTY;
+    }
+}
 ```
 
 ### 2，使用postman请求
@@ -163,3 +444,179 @@ checkToken方法就是从header中获取token到值(如果header中拿不到，�
 [掌握Git命令的本质，开发时才会得心应手](http://mp.weixin.qq.com/s?__biz=MzU2NDc4MjE2Ng==&mid=2247489413&idx=1&sn=bf22fdb5fbdbfbeeaea2c8a8ba0bcb14&chksm=fc44e2bccb336baa68dbfc520df82f75b8edab064a25413360e92e17ab17bb90642004d2a469&scene=21#wechat_redirect)
 
 [Shell 脚本进阶，经典用法及其案例](http://mp.weixin.qq.com/s?__biz=MzU2NDc4MjE2Ng==&mid=2247489371&idx=1&sn=f5d677e7370d286c1c0f89d95689d334&chksm=fc44e262cb336b7473252b2fcd998e60bd457e98bd348e325493acd82a69e3de8133d1685d0f&scene=21#wechat_redirect)
+
+
+
+# [SpringBoot通过自定义注解实现Token校验](https://mp.weixin.qq.com/s?__biz=MzU2NDc4MjE2Ng==&mid=2247489709&idx=1&sn=b143768f1d7672fe8ce2f5d791c4eb55&chksm=fc44ed94cb3364826184eacf339aff49de356aa1282e9269045eb6e57d204b656a2740c511cd&scene=21#wechat_redirect)
+
+1.注解类可以再加个字段判断是否需要验证权限
+
+```java
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Token {
+    boolean validate() default true;
+}
+```
+
+2.定义LoginUser注解，此注解加在参数上，用在需要从token里获取的用户信息的地方
+
+```java
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface LoginUser {
+}
+```
+
+3.权限的校验拦截器
+
+```java
+import com.example.demo.entity.User;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+@Component
+@Slf4j
+public class AuthorizationInterceptor extends HandlerInterceptorAdapter {
+    public static final String USER_KEY = "USER_ID";
+    public static final String USER_INFO = "USER_INFO";
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        Token annotation;
+        if(handler instanceof HandlerMethod) {
+            annotation = ((HandlerMethod) handler).getMethodAnnotation(Token.class);
+        }else{
+            return true;
+        }
+        //没有声明需要权限,或者声明不验证权限
+        if(annotation == null || annotation.validate() == false){
+            return true;
+        }
+        //从header中获取token
+        String token = request.getHeader("token");
+        if(token == null){
+            log.info("缺少token，拒绝访问");
+            return false;
+        }
+        //查询token信息
+        User user = redisUtils.get(USER_INFO+token,User.class);
+        if(user == null){
+            log.info("token不正确，拒绝访问");
+            return false;
+        }
+        //token校验通过，将用户信息放在request中，供需要用user信息的接口里从token取数据,
+        //可以用查数据库或者从Redis里取到当前User对象，添加到request里返回给后台接口
+        request.setAttribute(USER_KEY, "123456");
+        //User user = userMapper.select(userId);
+        user.setToken(token);
+        request.setAttribute(USER_INFO, user);
+        return true;
+    }
+}
+```
+
+4.写参数的解析器，将登陆用户对象注入到接口里
+
+```java
+import com.example.demo.annotation.LoginUser;
+import com.example.demo.entity.User;
+import com.example.demo.interceptor.AuthorizationInterceptor;
+import org.springframework.core.MethodParameter;
+import org.springframework.stereotype.Component;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.method.support.ModelAndViewContainer;
+@Component
+public class LoginUserHandlerMethodArgumentResolver implements HandlerMethodArgumentResolver
+{
+    @Override
+    public boolean supportsParameter(MethodParameter methodParameter) {
+        return methodParameter.getParameterType().isAssignableFrom(User.class)&&methodParameter.hasParameterAnnotation(LoginUser.class);
+    }
+    @Override
+    public Object resolveArgument(MethodParameter methodParameter, ModelAndViewContainer modelAndViewContainer, NativeWebRequest nativeWebRequest, WebDataBinderFactory webDataBinderFactory) throws Exception {
+        //获取登陆用户信息
+        Object object = nativeWebRequest.getAttribute(AuthorizationInterceptor.USER_INFO, RequestAttributes.SCOPE_REQUEST);
+        if(object == null){
+            return null;
+        }
+        return (User)object;
+    }
+}
+```
+
+5.配置拦截器和参数解析器
+
+```java
+import com.example.demo.interceptor.AuthorizationInterceptor;
+import com.example.demo.resolver.LoginUserHandlerMethodArgumentResolver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import java.util.List;
+ 
+@Configuration
+public class WebMvcConfig implements WebMvcConfigurer {
+    @Autowired
+    private AuthorizationInterceptor authorizationInterceptor;
+    @Autowired
+    private LoginUserHandlerMethodArgumentResolver loginUserHandlerMethodArgumentResolver;
+ 
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authorizationInterceptor).addPathPatterns("/api/**");
+    }
+ 
+    @Override
+    public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+        argumentResolvers.add(loginUserHandlerMethodArgumentResolver);
+    }
+}
+```
+
+6.测试类
+
+```java
+import com.example.demo.annotation.LoginUser;
+import com.example.demo.annotation.Token;
+import com.example.demo.entity.User;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+ 
+@RestController
+@RequestMapping(value = "/api")
+@Slf4j
+public class TestController {
+    @RequestMapping(value="/test",method = RequestMethod.POST)
+    @Token
+    public String test(@LoginUser User user){
+        System.out.println("需要token才可以访问，呵呵……");
+        log.info("user："+user.toString());
+        return "test";
+    }
+    @RequestMapping(value="/noToken",method = RequestMethod.POST)
+    public String noToken(){
+        System.out.println("不用token就可以访问……");
+        return "test";
+    }
+}
+```
+

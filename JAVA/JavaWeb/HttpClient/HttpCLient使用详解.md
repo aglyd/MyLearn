@@ -700,6 +700,8 @@ StringEntity content =new StringEntity(soapRequestData.toString(), Charset.forNa
 
 ### 4.6  文件上传
 
+**（在后台里直接上传给后台的Java方式，不是页面上传到后台）**
+
 ```java
 /** 
      * 上传文件 

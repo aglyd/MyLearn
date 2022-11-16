@@ -641,3 +641,420 @@ is.close();
 </html>
 ```
 
+
+
+# [Spring mvc的文件上传](http://t.zoukankan.com/javawebsoa-p-3037466.html)
+
+使用spring MVC框架进行文件上传，步骤如下：
+
+首先向dispatcher-servlet.xml添加下面代码：
+
+```xml
+<bean  id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">  
+                    <property name="maxUploadSize" value="1024000000"/>  
+                    <property name="resolveLazily" value="true"/>  
+                    <property name="maxInMemorySize" value="4096"/>  
+</bean>  
+```
+
+控制类controller的代码如下：
+
+```java
+@RequestMapping(value = "upload", method = RequestMethod.POST)
+    public String upload(HttpServletRequest request, HttpServletResponse response) {
+        FileOutputStream fileOutputStream = null;
+        try {
+            MultipartHttpServletRequest multipartHttpservletRequest = (MultipartHttpServletRequest) request;
+            MultipartFile multipartFile = multipartHttpservletRequest.getFile("uploadFile");
+            String originalFileName = multipartFile.getOriginalFilename();
+            File file = new File("../webapps/upload");
+            if (!file.exists()) {
+                file.mkdir();
+            }
+            System.out.println(file.getAbsolutePath() + "\t" + originalFileName);
+            fileOutputStream = new FileOutputStream(file + "/" + originalFileName);
+            fileOutputStream.write(multipartFile.getBytes());
+            fileOutputStream.flush();
+        } catch (IOException ex) {
+            Logger.getLogger(ExcelController.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                fileOutputStream.close();
+            } catch (IOException ex) {
+                Logger.getLogger(ExcelController.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        return "success";
+    }
+```
+
+或者入参里直接用文件类型参数MultipartFile接收
+
+```
+public Map upload(MultipartFile file,HttpServletRequest request) throws IOException {
+  String oname = file.getOriginalFilename();
+  String originalFilename = file.getOriginalFilename().replaceAll(".xls","");
+      
+}
+```
+
+上传页面index.jsp如下：
+
+```jsp
+    <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>  
+    <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">  
+    <html>  
+    <head>  
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">  
+    <title>上传</title>  
+    </head>  
+    <body>  
+        <div>  
+            <form  enctype="multipart/form-data"  method="post" action="upload">  
+                <input type="file" name="uploadFile" />  
+                <button onclick="this.form.submit();">上传</button>  
+            </form>  
+        </div>  
+    </body>  
+    </html>  
+```
+
+
+
+
+
+# [文件下载响应头的设置](https://www.jianshu.com/p/d4a85d025768)
+
+content-type 指示响应内容的格式
+
+content-disposition 指示如何处理响应内容，一般有两种方式：
+
+- inline：直接在页面中打开文件显示
+- attchment：以附件形式下载文件
+
+Server 端实现文件下载
+打开文件，将文件内容写入到 reponse 中
+设置 Response header（content-type,content-disposition）
+
+```java
+Content-Type: application/octet-stream
+Content-Disposition: attachment;filename=2018-03-03_15-47-45--2019-03-03_15-48-13--73c75b84-ba2a-470f-a713-07216fcd214b.xlsx
+```
+
+
+
+## 1. Content-Disposition的作用
+
+**Content-disposition是MIME协议的扩展，MIME协议指示MIME用户代理如何显示附加的文件。当Internet Explorer接收到头时，他会激活文件下载对话框，它的文件名框自动填充headers指定的文件名。**
+
+服务器向浏览器发送文件时，如果是浏览器支持的文件类型，一般会默认使用浏览器打开，比如`txt`、`jpg`等。如果需要提示用户保存，就要利用**Content-Disposition**进行处理，（敲黑板，划重点）关键在于一定要加上**attachment** `[附件] [əˈtætʃmənt]`。
+
+**例如**
+ Response.AppendHeader("ContentDisposition","attachment;filename=FileName.txt");
+
+> 这样的话，浏览器在打开的时候回提示保存还是打开，即使选择打开，也会使用相关联的程序，比如记事本打开，而不是IE直接打开。
+
+Content-Disposition就是当用户想把请求所得的内容存为一个文件的时候提供一个默认的文件名。
+ **具体的定义如下：**
+
+```java
+//content-disposition的定义
+content-disposition ="Content-Disposition" ":"
+                     disposition-type
+                     *(";" disposition-param)
+//disposition-type的定义
+disposition-type="attachment"|disp-extension-token
+//disposition-param的定义
+disposition-param=filename-param|disp-extension-parm
+//filename-param的定义
+filename-param= "filename"  "=" quoted-string
+//disp-extension-token的定义
+disp-extension-token = token
+//disp-extension-parm
+token "=" ( token | quoted-string )
+```
+
+例如：
+ Content-Disposition:attachment;filename="filename.xlsx;"
+
+注意点：
+ 当然filename参数可以包含路径信息，但User-Agnet会忽略这些信息，只会把路径信息的最后一部分作为文件名。当响应类型为`application/octet-stream`情况下使用上面的头信息的话，那么就不能直接显示内容，而是弹出一个"文件下载"的对话框，接下来就是用户决定“打开”还是“保存”了。
+
+## 2. 下载文件中文乱码
+
+> Content-Disposition如何适配各个浏览器以及解决中文乱码问题。
+
+[IE浏览器下载乱码问题](https://links.jianshu.com/go?to=https%3A%2F%2Fblog.csdn.net%2Fdreaming317%2Farticle%2Fdetails%2F82591600)
+ 总体下来就是这么几点：
+
+> 1. 两个IE11在使用第一个方法下载文件时中文文件名都会乱码，而使用第二个方法下载时其中一个IE11中文不会乱码，另一个IE11则会乱码；
+> 2. 文件名中存在空格时两个IE11浏览器下载下来文件文件名空格会变成+号，其他浏览器没有这个问题；
+> 3. 火狐浏览器下载时遇到文件名中有空格时下载下来的文件的文件名第一个空格后面的文字都会丢失。
+
+1. **老版IE的USER-AGENT参数中含有MISE关键字，但是IE11之后浏览器的USER-AGENT中去掉了MISE关键字。`【IE11：Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko；】` **
+2. IE下载文件名存在+号，是因为URLEncoder函数在对字符串进行转码后将空格替换成了+号，IE直接把+号显示出来。解决办法就是对文件名进行转码之后，使用replace方法将+号替换成%20即可，浏览器会将%20转换成空格输出。
+3. 对于第三个问题则是因为代码在set响应头时Content-Disposition参数的attachment;filename=等号后面文件名字符串没有使用**双引号**括起来，火狐浏览器对于遇到文件名有空格时认为空格前的字符是一个完整的字符串。故下载下来文件时文件名就只剩空格前的那几个字了。解决办法就是：在filename两边加上双引号并加反斜杠转义。
+
+**编码类**
+
+```dart
+ public static String toUtf8String(String fileName, HttpServletRequest request) throws Exception {
+        final String userAgent = request.getHeader("USER-AGENT");
+        String finalFileName = null;
+        if (StringUtils.contains(userAgent, "MSIE")||StringUtils.contains(userAgent, "Trident")) {// IE浏览器（旧版/新版）
+            finalFileName = URLEncoder.encode(fileName, "UTF8");
+        } else if (StringUtils.contains(userAgent, "Mozilla")) {// google,火狐浏览器
+            finalFileName = new String(fileName.getBytes(), "ISO8859-1");
+        } else {
+            finalFileName = URLEncoder.encode(fileName, "UTF8");// 其他浏览器
+            //或者HttpUtility.UrlEncode(filename, System.Text.Encoding.UTF8);
+        }
+        return finalFileName;
+    }
+
+@RequestMapping("/downExcel")
+    public void downExcel(HttpServletRequest request, HttpServletResponse response) {
+            out = response.getOutputStream();// 取得输出流
+            response.reset();// 清空输出流
+            response.setHeader("Content-disposition",
+                    "attachment; filename=" + ExcelUtil.toUtf8String(fileName, request) + ".xlsx");// 设定输出文件头
+            response.setContentType("application/msexcel");// 定义输出类型
+        //将数据写入输出流
+        //TODO
+      }
+```
+
+
+
+# 常见的MIME类型(通用型)：
+
+　　超文本标记语言文本 .html text/html
+
+　　xml文档 .xml text/xml
+
+　　XHTML文档 .xhtml application/xhtml+xml
+
+　　普通文本 .txt text/plain
+
+　　RTF文本 .rtf application/rtf
+
+　　PDF文档 .pdf application/pdf
+
+　　Microsoft Word文件 .word application/msword
+
+　　PNG图像 .png image/png
+
+　　GIF图形 .gif image/gif
+
+　　JPEG图形 .jpeg,.jpg image/jpeg
+
+　　au声音文件 .au audio/basic
+
+　　MIDI音乐文件 mid,.midi audio/midi,audio/x-midi
+
+　　RealAudio音乐文件 .ra, .ram audio/x-pn-realaudio
+
+　　MPEG文件 .mpg,.mpeg video/mpeg
+
+　　AVI文件 .avi video/x-msvideo
+
+　　GZIP文件 .gz application/x-gzip
+
+　　TAR文件 .tar application/x-tar
+
+　　任意的二进制流数据 application/octet-stream
+
+ 
+
+2，MIME类型参考手册：
+
+| 扩展名   | 类型/子类型                             |
+| :------- | :-------------------------------------- |
+| 二进制流 | application/octet-stream                |
+| 323      | text/h323                               |
+| acx      | application/internet-property-stream    |
+| ai       | application/postscript                  |
+| aif      | audio/x-aiff                            |
+| aifc     | audio/x-aiff                            |
+| aiff     | audio/x-aiff                            |
+| asf      | video/x-ms-asf                          |
+| asr      | video/x-ms-asf                          |
+| asx      | video/x-ms-asf                          |
+| au       | audio/basic                             |
+| avi      | video/x-msvideo                         |
+| axs      | application/olescript                   |
+| bas      | text/plain                              |
+| bcpio    | application/x-bcpio                     |
+| bin      | application/octet-stream                |
+| bmp      | image/bmp                               |
+| c        | text/plain                              |
+| cat      | application/vnd.ms-pkiseccat            |
+| cdf      | application/x-cdf                       |
+| cer      | application/x-x509-ca-cert              |
+| class    | application/octet-stream                |
+| clp      | application/x-msclip                    |
+| cmx      | image/x-cmx                             |
+| cod      | image/cis-cod                           |
+| cpio     | application/x-cpio                      |
+| crd      | application/x-mscardfile                |
+| crl      | application/pkix-crl                    |
+| crt      | application/x-x509-ca-cert              |
+| csh      | application/x-csh                       |
+| css      | text/css                                |
+| dcr      | application/x-director                  |
+| der      | application/x-x509-ca-cert              |
+| dir      | application/x-director                  |
+| dll      | application/x-msdownload                |
+| dms      | application/octet-stream                |
+| doc      | application/msword                      |
+| dot      | application/msword                      |
+| dvi      | application/x-dvi                       |
+| dxr      | application/x-director                  |
+| eps      | application/postscript                  |
+| etx      | text/x-setext                           |
+| evy      | application/envoy                       |
+| exe      | application/octet-stream                |
+| fif      | application/fractals                    |
+| flr      | x-world/x-vrml                          |
+| gif      | image/gif                               |
+| gtar     | application/x-gtar                      |
+| gz       | application/x-gzip                      |
+| h        | text/plain                              |
+| hdf      | application/x-hdf                       |
+| hlp      | application/winhlp                      |
+| hqx      | application/mac-binhex40                |
+| hta      | application/hta                         |
+| htc      | text/x-component                        |
+| htm      | text/html                               |
+| html     | text/html                               |
+| htt      | text/webviewhtml                        |
+| ico      | image/x-icon                            |
+| ief      | image/ief                               |
+| iii      | application/x-iphone                    |
+| ins      | application/x-internet-signup           |
+| isp      | application/x-internet-signup           |
+| jfif     | image/pipeg                             |
+| jpe      | image/jpeg                              |
+| jpeg     | image/jpeg                              |
+| jpg      | image/jpeg                              |
+| js       | application/x-javascript                |
+| latex    | application/x-latex                     |
+| lha      | application/octet-stream                |
+| lsf      | video/x-la-asf                          |
+| lsx      | video/x-la-asf                          |
+| lzh      | application/octet-stream                |
+| m13      | application/x-msmediaview               |
+| m14      | application/x-msmediaview               |
+| m3u      | audio/x-mpegurl                         |
+| man      | application/x-troff-man                 |
+| mdb      | application/x-msaccess                  |
+| me       | application/x-troff-me                  |
+| mht      | message/rfc822                          |
+| mhtml    | message/rfc822                          |
+| mid      | audio/mid                               |
+| mny      | application/x-msmoney                   |
+| mov      | video/quicktime                         |
+| movie    | video/x-sgi-movie                       |
+| mp2      | video/mpeg                              |
+| mp3      | audio/mpeg                              |
+| mpa      | video/mpeg                              |
+| mpe      | video/mpeg                              |
+| mpeg     | video/mpeg                              |
+| mpg      | video/mpeg                              |
+| mpp      | application/vnd.ms-project              |
+| mpv2     | video/mpeg                              |
+| ms       | application/x-troff-ms                  |
+| mvb      | application/x-msmediaview               |
+| nws      | message/rfc822                          |
+| oda      | application/oda                         |
+| p10      | application/pkcs10                      |
+| p12      | application/x-pkcs12                    |
+| p7b      | application/x-pkcs7-certificates        |
+| p7c      | application/x-pkcs7-mime                |
+| p7m      | application/x-pkcs7-mime                |
+| p7r      | application/x-pkcs7-certreqresp         |
+| p7s      | application/x-pkcs7-signature           |
+| pbm      | image/x-portable-bitmap                 |
+| pdf      | application/pdf                         |
+| pfx      | application/x-pkcs12                    |
+| pgm      | image/x-portable-graymap                |
+| pko      | application/ynd.ms-pkipko               |
+| pma      | application/x-perfmon                   |
+| pmc      | application/x-perfmon                   |
+| pml      | application/x-perfmon                   |
+| pmr      | application/x-perfmon                   |
+| pmw      | application/x-perfmon                   |
+| pnm      | image/x-portable-anymap                 |
+| pot,     | application/vnd.ms-powerpoint           |
+| ppm      | image/x-portable-pixmap                 |
+| pps      | application/vnd.ms-powerpoint           |
+| ppt      | application/vnd.ms-powerpoint           |
+| prf      | application/pics-rules                  |
+| ps       | application/postscript                  |
+| pub      | application/x-mspublisher               |
+| qt       | video/quicktime                         |
+| ra       | audio/x-pn-realaudio                    |
+| ram      | audio/x-pn-realaudio                    |
+| ras      | image/x-cmu-raster                      |
+| rgb      | image/x-rgb                             |
+| rmi      | audio/mid                               |
+| roff     | application/x-troff                     |
+| rtf      | application/rtf                         |
+| rtx      | text/richtext                           |
+| scd      | application/x-msschedule                |
+| sct      | text/scriptlet                          |
+| setpay   | application/set-payment-initiation      |
+| setreg   | application/set-registration-initiation |
+| sh       | application/x-sh                        |
+| shar     | application/x-shar                      |
+| sit      | application/x-stuffit                   |
+| snd      | audio/basic                             |
+| spc      | application/x-pkcs7-certificates        |
+| spl      | application/futuresplash                |
+| src      | application/x-wais-source               |
+| sst      | application/vnd.ms-pkicertstore         |
+| stl      | application/vnd.ms-pkistl               |
+| stm      | text/html                               |
+| svg      | image/svg+xml                           |
+| sv4cpio  | application/x-sv4cpio                   |
+| sv4crc   | application/x-sv4crc                    |
+| swf      | application/x-shockwave-flash           |
+| t        | application/x-troff                     |
+| tar      | application/x-tar                       |
+| tcl      | application/x-tcl                       |
+| tex      | application/x-tex                       |
+| texi     | application/x-texinfo                   |
+| texinfo  | application/x-texinfo                   |
+| tgz      | application/x-compressed                |
+| tif      | image/tiff                              |
+| tiff     | image/tiff                              |
+| tr       | application/x-troff                     |
+| trm      | application/x-msterminal                |
+| tsv      | text/tab-separated-values               |
+| txt      | text/plain                              |
+| uls      | text/iuls                               |
+| ustar    | application/x-ustar                     |
+| vcf      | text/x-vcard                            |
+| vrml     | x-world/x-vrml                          |
+| wav      | audio/x-wav                             |
+| wcm      | application/vnd.ms-works                |
+| wdb      | application/vnd.ms-works                |
+| wks      | application/vnd.ms-works                |
+| wmf      | application/x-msmetafile                |
+| wps      | application/vnd.ms-works                |
+| wri      | application/x-mswrite                   |
+| wrl      | x-world/x-vrml                          |
+| wrz      | x-world/x-vrml                          |
+| xaf      | x-world/x-vrml                          |
+| xbm      | image/x-xbitmap                         |
+| xla      | application/vnd.ms-excel                |
+| xlc      | application/vnd.ms-excel                |
+| xlm      | application/vnd.ms-excel                |
+| xls      | application/vnd.ms-excel                |
+| xlt      | application/vnd.ms-excel                |
+| xlw      | application/vnd.ms-excel                |
+| xof      | x-world/x-vrml                          |
+| xpm      | image/x-xpixmap                         |
+| xwd      | image/x-xwindowdump                     |
+| z        | application/x-compress                  |
+| zip      | application/zip                         |

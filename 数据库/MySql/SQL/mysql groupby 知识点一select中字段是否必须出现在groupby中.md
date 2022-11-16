@@ -99,6 +99,7 @@ and contains nonaggregated column
 'test.student.id' which is not functionally 
 dependent on columns in GROUP BY clause; 
 this is incompatible with sql_mode=only_full_group_by
+
 mysql> select id,name,score from student where score >95  group by name;
 ERROR 1055 (42000): Expression #1 of 
 SELECT list is not in GROUP BY clause 
@@ -305,3 +306,57 @@ collect_set()：通过collect_set会把每个字段所对应的值构建成一�
 > 输出的即 20210101 [1,2]
 
 collect_list
+
+
+
+# 分组查询——只获取每组第一条数据
+
+## 第一种写法：分组子查询inner join
+
+先子查询中分组且用min(id)或max(id)取每组中的特定一条的id出来
+
+```sql
+SELECT bb.`detail`, bb.`id`,bb.`template_id` 
+from `template_detail` bb 
+		INNER JOIN 
+		( 
+		    SELECT MAX(`id`) id, `template_id` 
+		    from `template_detail` GROUP BY `template_id` 
+		) as tb on bb.`id` = tb.id
+
+```
+
+
+
+DATE_TIME（yyyy-MM-dd）每天会有一条，需要按月取出每月第一条
+
+```sql
+select * from BWQX.T_ZB_DATA  b
+    inner join (
+SELECT
+   min(DATE_TIME) date,			--取出该月日期最小的一条数据的日期和code作为主键
+    min(TYPE_CODE) code
+FROM BWQX.T_ZB_DATA
+WHERE
+        TYPE_CODE = 'G0000901'
+group by substr(DATE_TIME,1,7)		--按月分组
+) a
+on b.DATE_TIME = a.date and
+b.TYPE_CODE = a.code
+order by b.DATE_TIME;
+```
+
+
+
+## 第二种写法：用row_number() over(partition by 分组字段 order by 排序字段 )
+
+```sql
+select emp.* from (
+select row_number() over (partition by FINANCIAL_INSTITUTION_CODE order by PLAN_ID) as rownum_,PLAN_ID,FINANCIAL_INSTITUTION_CODE
+from BWQX.STC_YEAR_PLAN_FINANCIAL_INSTITUTION) emp
+where rownum_ <= 1 and rownum_ > 0;		
+--取每组的第一条，想取第几条就可以写几，如果要最后一条，也可以倒序然后取第一条。注意这里如果用 fetch first 1 rows only 则是总条数为1，也就是只会返回全部数据的第1条，而不是每组的第一条
+```
+
+
+

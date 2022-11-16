@@ -125,7 +125,7 @@ http://127.0.0.1:8080/工程名/TestPara?a=a&b=b&c=c1
 
 在后台打个断点 看下结果
 
-![这里写图片描述](JAVA中request.getParameterMap()用法笔记.assets/20180113112457203)
+![这里写图片描述](JAVA中request.getParameterMap()用法笔记.assets/20180113112457203.jpg)
 
 可以看到 request.getParameterMap() 就是把所有的请求参数全部封装成了map,
 同时我们也注意到,他的value部分是String[]的一个数组,我们这样上传的话长度都是1,怎么样才能超过1个呢?

@@ -40,8 +40,9 @@ public String getStreamFile(String url) throws Exception {
 后台生成Excel的workBook，workBook.write(out)写入response.getOutputStream()的out，返回给网关项目，网关用HTTP client调用，取出响应数据（文件数据字节数组），再写入返回给前端的response.getOutputStream()响应流，相当于写了两次响应流（第一次返回给网关，第二次返回给前端）
 
 ```java
+//方式一：
 OutputStream out = response.getOutputStream();
-//生成Excel...
+//生成Excel...返回给网关的out
 workBook.write(out);
 
 
@@ -55,7 +56,7 @@ outputStream = response.getOutputStream();
 outputStream.write(resultByte);
 
 
-//或者也可以写Excel生成到服务器本地，再返回文件地址给前端，前端再调用下载接口下载文件
+//方式二：或者也可以写Excel生成到服务器本地，再返回文件地址给前端，前端再调用下载接口下载文件
 OutputStream out = new FileOutputStream(new File("filePath"));// 创建文件输出流，准备输出电子表格
 //生成Excel...
 workBook.write(out);
@@ -76,7 +77,7 @@ workBook.write(out);
 
 
 ```java
-CopyHttpClient client = new DefaultHttpClient();
+HttpClient client = new DefaultHttpClient();
 HttpGet request = new HttpGet("http://10.16.83.67/1kb.log");
 HttpResponse response = null;
 BufferedReader rd = null;
@@ -86,19 +87,15 @@ response = client.execute(request);
 
 然后我可以从响应中获取HttpEntity：
 
-
-
 ```java
-CopyHttpEntity entity = response.getEntity();
+HttpEntity entity = response.getEntity();
 rd = new BufferedReader(new InputStreamReader(entity.getContent()));
 ```
 
-然后,使用BufferedReader …
-
-
+然后,使用BufferedReader 
 
 ```java
-Copywhile ((line = rd.readLine()) != null) {
+while ((line = rd.readLine()) != null) {
  // ... parse or whatever
 }
 ```
@@ -117,18 +114,12 @@ Copywhile ((line = rd.readLine()) != null) {
 
 你在使用AsyncTask吗？否则你可以去做
 
-
-
-
-
 ```java
-Copy private class DownloadFilesTask extends AsyncTask<URL, Integer, Long> {
+private class DownloadFilesTask extends AsyncTask<URL, Integer, Long> {
  protected Long doInBackground(URL... urls) {}
 ```
 
 //在上面的方法中执行所有http请求
-
-
 
 ```java
  protected void onProgressUpdate(Integer... progress) {

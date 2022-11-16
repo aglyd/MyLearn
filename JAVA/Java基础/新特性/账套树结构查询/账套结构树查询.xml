@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap  PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="BK01">
+
+<!--找到该节点下的所有等级子节点-->
+    <select id="queryTree" parameterClass="java.util.List" resultClass="java.util.HashMap">
+        WITH orgTree (ARCHIVE_FLAG,
+        ACCT_PERIOD_NO,
+        COMPANY_CODE,
+        MODEL_TYPE,
+        NODE_LEVEL,
+        NODE_ID,
+        COMPANY_CODE_CN,
+        PARENT_NODE_ID,
+        LAST_FLAG,
+        COMB_FLAG,
+        CURRENCY_CODE,
+        VALID_FLAG) AS (
+        SELECT
+        ARCHIVE_FLAG,
+        ACCT_PERIOD_NO,
+        COMPANY_CODE,
+        MODEL_TYPE,
+        NODE_LEVEL,
+        NODE_ID,
+        COMPANY_CODE_CN,
+        PARENT_NODE_ID,
+        LAST_FLAG,
+        COMB_FLAG,
+        CURRENCY_CODE,
+        VALID_FLAG
+        FROM
+        IPLATV63.TXSBK01
+        WHERE
+        NODE_ID IN
+        <iterate conjunction="," open="(" close=")">
+            #nodeList[]#
+        </iterate>
+        AND ACCT_PERIOD_NO = (
+        SELECT
+        ACCT_PERIOD_NO
+        FROM
+        IPLATV63.TXSBK01
+        ORDER BY
+        ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY)
+        UNION ALL
+        SELECT
+        b.ARCHIVE_FLAG,
+        b.ACCT_PERIOD_NO,
+        b.COMPANY_CODE,
+        b.MODEL_TYPE,
+        b.NODE_LEVEL,
+        b.NODE_ID,
+        b.COMPANY_CODE_CN,
+        b.PARENT_NODE_ID,
+        b.LAST_FLAG,
+        b.COMB_FLAG,
+        b.CURRENCY_CODE,
+        b.VALID_FLAG
+        FROM
+        orgTree a,
+        IPLATV63.TXSBK01 b
+        WHERE
+        b.PARENT_NODE_ID = a.NODE_ID
+        AND b.ACCT_PERIOD_NO = (
+        SELECT
+        ACCT_PERIOD_NO
+        FROM
+        IPLATV63.TXSBK01
+        ORDER BY
+        ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY))
+        SELECT
+        DISTINCT
+        ARCHIVE_FLAG,
+        ACCT_PERIOD_NO,
+        COMPANY_CODE,
+        MODEL_TYPE,
+        NODE_LEVEL,
+        NODE_ID,
+        COMPANY_CODE_CN,
+        PARENT_NODE_ID,
+        LAST_FLAG,
+        COMB_FLAG,
+        CURRENCY_CODE,
+        VALID_FLAG
+        FROM
+        orgTree
+    </select>
+
+    <!--  查出当前账户下在TXSBK02账户授权表中授权的一级账套  -->
+    <select id="queryTXSBK02ByEmpCodeAndfunMod" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT
+        t1.ARCHIVE_FLAG,
+        t1.ACCT_PERIOD_NO,
+        t1.COMPANY_CODE,
+        t1.MODEL_TYPE,
+        t1.NODE_LEVEL,
+        t1.NODE_ID,
+        t1.COMPANY_CODE_CN,
+        t1.PARENT_NODE_ID,
+        t1.LAST_FLAG,
+        t1.COMB_FLAG,
+        t1.CURRENCY_CODE,
+        t1.VALID_FLAG,
+        t2.EMP_CODE,
+        t2.USER_NAME,
+        t2.FUN_MOD,
+        t2.AU_FLAG
+        FROM
+        IPLATV63.TXSBK01 t1
+        LEFT JOIN IPLATV63.TXSBK02 t2 ON t1.COMPANY_CODE = t2.COMPANY_INNER_CODE
+        WHERE t2.EMP_CODE = #empCode# AND t2.FUN_MOD = #funMod# AND LEFT (t1.NODE_ID,3) = #itemCode#
+        AND t1.ACCT_PERIOD_NO = (SELECT
+            ACCT_PERIOD_NO
+            FROM
+            IPLATV63.TXSBK01
+            ORDER BY
+            ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY)
+        ORDER BY t1.NODE_LEVEL ASC
+    </select>
+
+    <select id="queryIndustryClass" resultClass="java.util.HashMap">
+        SELECT
+            t.ITEM_CODE,
+            t.ITEM_CNAME,
+            t.SORT_ID,
+            LISTAGG(t2.COMPANY_INNER_CODE,',') AS COMPANY_INNER_CODE,
+            t2.ACCT_PERIOD_NO
+        FROM
+            IPLATV63.TEDCM01 t
+                LEFT JOIN IPLATV63.TXSBK04 t2 ON
+                t.ITEM_CODE = t2.FIELD_VALUE AND t.CODESET_CODE = t2.FIELD_TYPE
+        WHERE t2.FIELD_TYPE = 'bwtmf.industryClass'
+        GROUP BY t.ITEM_CODE,t.ITEM_CNAME,t.SORT_ID,t2.ACCT_PERIOD_NO
+        ORDER BY
+            t.SORT_ID ASC
+    </select>
+
+    <select id="queryTXSBK01" parameterClass="java.util.List" resultClass="java.util.HashMap">
+        SELECT
+        ARCHIVE_FLAG,
+        ACCT_PERIOD_NO,
+        COMPANY_CODE,
+        MODEL_TYPE,
+        NODE_LEVEL,
+        NODE_ID,
+        COMPANY_CODE_CN,
+        PARENT_NODE_ID,
+        LAST_FLAG,
+        COMB_FLAG,
+        CURRENCY_CODE,
+        VALID_FLAG
+        FROM
+        IPLATV63.TXSBK01
+        WHERE
+        COMPANY_CODE IN
+        <iterate conjunction="," open="(" close=")">
+            #companyCodeList[]#
+        </iterate>
+        AND ACCT_PERIOD_NO = (select ACCT_PERIOD_NO from IPLATV63.TXSBK04 where FIELD_TYPE = 'bwtmf.industryClass' FETCH FIRST 1 ROWS ONLY)
+        AND LEFT (NODE_ID,3) = '001'
+        AND MODEL_TYPE = 'KJ01'
+    </select>
+
+    <!--  根据配置业务属性的账套去授权的账套树找到交集并往上递归  -->
+    <select id="queryTreeByBusiness" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        WITH orgTree (ARCHIVE_FLAG,
+                      ACCT_PERIOD_NO,
+                      COMPANY_CODE,
+                      MODEL_TYPE,
+                      NODE_LEVEL,
+                      NODE_ID,
+                      COMPANY_CODE_CN,
+                      PARENT_NODE_ID,
+                      LAST_FLAG,
+                      COMB_FLAG,
+                      CURRENCY_CODE,
+                      VALID_FLAG) AS (
+            SELECT ARCHIVE_FLAG,
+                   ACCT_PERIOD_NO,
+                   COMPANY_CODE,
+                   MODEL_TYPE,
+                   NODE_LEVEL,
+                   NODE_ID,
+                   COMPANY_CODE_CN,
+                   PARENT_NODE_ID,
+                   LAST_FLAG,
+                   COMB_FLAG,
+                   CURRENCY_CODE,
+                   VALID_FLAG
+            FROM IPLATV63.TXSBK01
+            WHERE NODE_ID IN (
+                SELECT NODE_ID
+                FROM IPLATV63.TXSBK01
+                WHERE COMPANY_CODE IN (
+                    SELECT COMPANY_INNER_CODE
+                    FROM IPLATV63.TXSBK04
+                    WHERE FIELD_TYPE = 'bwtmf.bizType'
+                      AND FIELD_VALUE = #businessType#)
+                  AND LEFT (NODE_ID,3) = #itemCode#
+            AND ACCT_PERIOD_NO = (
+            SELECT
+            ACCT_PERIOD_NO
+            FROM
+            IPLATV63.TXSBK01
+            ORDER BY
+            ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY))
+            AND ACCT_PERIOD_NO = (
+        SELECT
+            ACCT_PERIOD_NO
+        FROM
+            IPLATV63.TXSBK01
+        ORDER BY
+            ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY)
+        UNION ALL
+        SELECT b.ARCHIVE_FLAG,
+               b.ACCT_PERIOD_NO,
+               b.COMPANY_CODE,
+               b.MODEL_TYPE,
+               b.NODE_LEVEL,
+               b.NODE_ID,
+               b.COMPANY_CODE_CN,
+               b.PARENT_NODE_ID,
+               b.LAST_FLAG,
+               b.COMB_FLAG,
+               b.CURRENCY_CODE,
+               b.VALID_FLAG
+        FROM orgTree a,
+             IPLATV63.TXSBK01 b
+        WHERE b.NODE_ID = a.PARENT_NODE_ID
+        AND b.ACCT_PERIOD_NO = (
+            SELECT ACCT_PERIOD_NO
+            FROM IPLATV63.TXSBK01
+            ORDER BY ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY))
+        ,
+        temp (ARCHIVE_FLAG,
+                ACCT_PERIOD_NO,
+                COMPANY_CODE,
+                MODEL_TYPE,
+                NODE_LEVEL,
+                NODE_ID,
+                COMPANY_CODE_CN,
+                PARENT_NODE_ID,
+                LAST_FLAG,
+                COMB_FLAG,
+                CURRENCY_CODE,
+                VALID_FLAG) AS (
+        SELECT
+            ARCHIVE_FLAG,
+            ACCT_PERIOD_NO,
+            COMPANY_CODE,
+            MODEL_TYPE,
+            NODE_LEVEL,
+            NODE_ID,
+            COMPANY_CODE_CN,
+            PARENT_NODE_ID,
+            LAST_FLAG,
+            COMB_FLAG,
+            CURRENCY_CODE,
+            VALID_FLAG
+        FROM
+            orgTree
+        WHERE
+            NODE_ID = #nodeId#
+        UNION ALL
+        SELECT
+            b.ARCHIVE_FLAG,
+            b.ACCT_PERIOD_NO,
+            b.COMPANY_CODE,
+            b.MODEL_TYPE,
+            b.NODE_LEVEL,
+            b.NODE_ID,
+            b.COMPANY_CODE_CN,
+            b.PARENT_NODE_ID,
+            b.LAST_FLAG,
+            b.COMB_FLAG,
+            b.CURRENCY_CODE,
+            b.VALID_FLAG
+        FROM
+            temp a,
+            orgTree b
+        WHERE
+            b.PARENT_NODE_ID = a.NODE_ID
+        )
+        SELECT DISTINCT ARCHIVE_FLAG,
+                        ACCT_PERIOD_NO,
+                        COMPANY_CODE,
+                        MODEL_TYPE,
+                        NODE_LEVEL,
+                        NODE_ID,
+                        COMPANY_CODE_CN,
+                        PARENT_NODE_ID,
+                        LAST_FLAG,
+                        COMB_FLAG,
+                        CURRENCY_CODE,
+                        VALID_FLAG
+        FROM temp
+    </select>
+
+    <select id="queryByNodeId" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT
+        ARCHIVE_FLAG,
+        ACCT_PERIOD_NO,
+        COMPANY_CODE,
+        MODEL_TYPE,
+        NODE_LEVEL,
+        NODE_ID,
+        COMPANY_CODE_CN,
+        PARENT_NODE_ID,
+        LAST_FLAG,
+        COMB_FLAG,
+        CURRENCY_CODE,
+        VALID_FLAG
+        FROM
+        IPLATV63.TXSBK01
+        WHERE
+        PARENT_NODE_ID = #nodeId#
+        AND ACCT_PERIOD_NO = (SELECT
+        ACCT_PERIOD_NO
+        FROM
+        IPLATV63.TXSBK01
+        ORDER BY
+        ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY)
+        <isNotEmpty prepend=" AND " property="companyCodeCn">
+            COMPANY_CODE_CN LIKE '%'||#companyCodeCn#||'%'
+        </isNotEmpty>
+    </select>
+
+	<select id="queryCompanyByNodeId" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT
+        ARCHIVE_FLAG,
+        ACCT_PERIOD_NO,
+        COMPANY_CODE,
+        MODEL_TYPE,
+        NODE_LEVEL,
+        NODE_ID,
+        COMPANY_CODE_CN,
+        PARENT_NODE_ID,
+        LAST_FLAG,
+        COMB_FLAG,
+        CURRENCY_CODE,
+        VALID_FLAG
+        FROM
+        IPLATV63.TXSBK01
+        WHERE
+        NODE_ID = #nodeId#
+        AND ACCT_PERIOD_NO = (SELECT
+        ACCT_PERIOD_NO
+        FROM
+        IPLATV63.TXSBK01
+        ORDER BY
+        ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY)
+
+    </select>
+
+	<!--找出顶级根节点下的所有子节点-->
+    <select id="queryAll" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT
+            ARCHIVE_FLAG,
+            ACCT_PERIOD_NO,
+            COMPANY_CODE,
+            MODEL_TYPE,
+            NODE_LEVEL,
+            NODE_ID,
+            COMPANY_CODE_CN,
+            PARENT_NODE_ID,
+            LAST_FLAG,
+            COMB_FLAG,
+            CURRENCY_CODE,
+            VALID_FLAG
+        FROM
+            IPLATV63.TXSBK01
+        WHERE
+                ACCT_PERIOD_NO = (
+                SELECT
+                    ACCT_PERIOD_NO
+                FROM
+                    IPLATV63.TXSBK01
+                ORDER BY
+                    ACCT_PERIOD_NO DESC FETCH FIRST 1 ROWS ONLY)
+          AND LEFT (NODE_ID,3) in
+        <iterate conjunction="," open="(" close=")" property="nodeId">
+            #nodeId[]#
+        </iterate>
+    </select>
+
+	<!--查授权的根节点-->
+    <select id="queryBK02" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT
+            COMPANY_INNER_CODE,
+            DATA_CALIBER
+        FROM
+            IPLATV63.TXSBK02
+        WHERE
+            EMP_CODE = #empCode#
+          AND FUN_MOD = #funMod#
+          AND LEFT (DATA_CALIBER,
+            3) = #itemCode#
+    </select>
+
+</sqlMap>

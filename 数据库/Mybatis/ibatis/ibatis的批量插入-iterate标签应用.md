@@ -213,3 +213,76 @@ update xxx.xxx
 
 
 
+# [Ibatis中的isNotNull、isEqual、isEmpty的区别](https://blog.csdn.net/wangxy799/article/details/50905795/)
+
+> isNull判断property字段是否是null
+> isEmpty判断property字段 是否是null 和 空[字符串](https://so.csdn.net/so/search?q=字符串&spm=1001.2101.3001.7020)
+> isEqual相当于[equals](https://so.csdn.net/so/search?q=equals&spm=1001.2101.3001.7020)，数字用得多些，一般都是判断状态值
+
+------
+
+转载自：<http://jun1986.iteye.com/blog/1402191>
+
+例子1:(isEqual)
+
+```xml
+<isEqual property="state" compareValue="0">< /isEqual>
+或
+<isEqual property="state" compareProperty="nextState"></isEqual>
+```
+
+例子2：
+传入的map或者类的属性name等于”1”吗，是就附加and和vvvv
+
+```xml
+<isEqual property="name" compareValue="1" prepend="and">
+    vvvv = '哈哈'
+< /isEqual>
+```
+
+传入的map或者类的属性name是null吗，是就附加and和vvvv = null
+
+```xml
+< isNull property="name" prepend="and">
+    vvvv = null
+< /isNull>
+```
+
+sqlmap
+
+```xml
+<select id="querySingleModelByOut"  parameterClass="com.hanpeng.base.phone.model.TBussinessNotice"   
+    resultClass="com.hanpeng.base.phone.model.TBussinessNotice">  
+    select * from (select row_.*, rownum rownum_ from (  
+        SELECT  
+            i.NOTICE_NUM  as noticeNum ,              
+            i.BUSSINESS_ID  as bussinessId ,              
+            i.STATE  as state ,           
+            i.READ_DATE  as readDate ,  
+            n.NOTICE_TITLE as noticeTitle ,           
+            n.NOTICE_INFO as noticeInfo ,             
+            n.CREATE_DATE as createDate ,             
+            n.EMPLOYEE_ID as employeeId ,             
+            n.NOTICE_TYPE as noticeType ,             
+            n.NOTICE_SHOW_TYPE as noticeShowType ,            
+            n.FINISH_DATE as finishDate ,             
+            n.PUBLISH_DATE as publishDate   
+        FROM  T_BUSSINESS_NOTICE i left join T_NOTICE n on n.NOTICE_NUM = i.NOTICE_NUM   
+        WHERE  
+        n.PUBLISH_DATE &lt;= sysdate AND n.FINISH_DATE &gt;= sysdate  
+        <isNotEmpty prepend=" AND " property="bussinessId">   
+            i.BUSSINESS_ID = #bussinessId# </isNotEmpty>  
+        <isNotEmpty prepend=" AND " property="state">   
+            i.STATE = #state# </isNotEmpty>  
+        <isNotEmpty prepend=" AND " property="noticeShowType">   
+            n.NOTICE_SHOW_TYPE = #noticeShowType# </isNotEmpty>  
+        <isEqual property="saleBack" compareValue="10" prepend=" AND ">  
+            n.NOTICE_TYPE!='25'</isEqual>  
+        <isEqual property="remittanceBank" compareValue="10" prepend=" AND ">  
+            n.NOTICE_TYPE!='63'</isEqual>  
+        <isEqual property="remittanceOnline" compareValue="10" prepend=" AND ">  
+            n.NOTICE_TYPE!='64'</isEqual>  
+    )row_ where rownum &lt;=1 ) where rownum_&gt;=0  
+</select>  
+```
+

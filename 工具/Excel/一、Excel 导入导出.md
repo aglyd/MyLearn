@@ -720,3 +720,216 @@ public class Test {
 }
 ```
 
+
+
+
+
+## [excel操作之poi-ooxml](https://www.cnblogs.com/muxi0407/p/11975145.html)
+
+目前市场上流行的对于excel处理的框架大致有两种：poi和jxl。对于这两种框架，我们可以做一个简单的对比：
+   1 开发团队：poi是Apache旗下的一个开源项目，由Apache官方维护，jxl好像是一个个人维护的开源项目。
+   2 各自优点：poi对公式支持较好，jxl不算好 。jxl提供对图片的支持（仅仅PNG格式），poi支持。（就这一条来看财务软件就该选poi，而媒体类的软件就该选jxl了）
+   3 内存消耗：由于jxl在对资源回收利用方面做了相当的功课，在内存消耗上jxl是略胜于poi的。所以对于大数据量的软件导入来说，选择jxl是比较合算的，当然数据量小的基本没有差别。
+   4 运行速度： 估计是内存消耗多的缘故，poi对于读写速度这一功能做的好像比jxl好了不少，并且支持压缩excel。
+    对比了这么多，对于自己项目该使用哪个框架，应该也十分明显了（当然这些也都是从网上搜集来的，不保证有错误的地方）。
+    这里我记录一下poi的使用吧，都挺简单的，基本原理都是将excel表格数据提取出来组成一个list。然后对应这个list自己去做循环对应自己数据表的数据就行了。需要说明的一点是如果是数字类型的话，读出来的数据一般都是以double类型返回给你的，比如你在excel里面写的是100，读取出来的数据就是100.0.这点比较烦人，当然自己做一下处理就好了。
+    还有一点就是poi也有两个不同的jar包，分别是处理excel2003和excel2007+的，对应的是poi和poi-ooxml。毕竟poi-ooxml是poi的升级版本，处理的单页数据量也是百万级别的，所以我们选择的也是poi-ooxml。好了，下面就贴上代码吧，注释较多，就不多做啰嗦了。,前提是引入包：
+
+```
+<!--poi对excel2007以上版本的支持-->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>3.12</version>
+        </dependency>
+```
+
+   以下代码完全可以作为一个excel工具类迁移到自己的项目中：
+
+```java
+/**
+ * 处理excel读入的工具类
+ * Created by Liujishuai on 2015/8/5.
+ */
+public class ExcelUtils {
+    /**
+     * 要求excel版本在2007以上
+     *
+     * @param file 文件信息
+     * @return
+     * @throws Exception
+     */
+    public static List<List<Object>> readExcel(File file) throws Exception {
+        if(!file.exists()){
+            throw new Exception("找不到文件");
+        }
+        List<List<Object>> list = new LinkedList<List<Object>>();
+        XSSFWorkbook xwb = new XSSFWorkbook(new FileInputStream(file));
+        // 读取第一张表格内容
+        XSSFSheet sheet = xwb.getSheetAt(0);
+        XSSFRow row = null;
+        XSSFCell cell = null;
+        for (int i = (sheet.getFirstRowNum() + 1); i <= (sheet.getPhysicalNumberOfRows() - 1); i++) {
+            row = sheet.getRow(i);
+            if (row == null) {
+                continue;
+            }
+            List<Object> linked = new LinkedList<Object>();
+            for (int j = row.getFirstCellNum(); j <= row.getLastCellNum(); j++) {
+                Object value = null;
+                cell = row.getCell(j);
+                if (cell == null) {
+                    continue;
+                }
+                switch (cell.getCellType()) {
+                    case XSSFCell.CELL_TYPE_STRING:
+                        //String类型返回String数据
+                        value = cell.getStringCellValue();
+                        break;
+                    case XSSFCell.CELL_TYPE_NUMERIC:
+                        //日期数据返回LONG类型的时间戳
+                        if ("yyyy\"年\"m\"月\"d\"日\";@".equals(cell.getCellStyle().getDataFormatString())) {
+                            //System.out.println(cell.getNumericCellValue()+":日期格式："+cell.getCellStyle().getDataFormatString());
+                            value = DateUtils.getMillis(HSSFDateUtil.getJavaDate(cell.getNumericCellValue())) / 1000;
+                        } else {
+                            //数值类型返回double类型的数字
+                            //System.out.println(cell.getNumericCellValue()+":格式："+cell.getCellStyle().getDataFormatString());
+                            value = cell.getNumericCellValue();
+                        }
+                        break;
+                    case XSSFCell.CELL_TYPE_BOOLEAN:
+                        //布尔类型
+                        value = cell.getBooleanCellValue();
+                        break;
+                    case XSSFCell.CELL_TYPE_BLANK:
+                        //空单元格
+                        break;
+                    default:
+                        value = cell.toString();
+                }
+                if (value != null && !value.equals("")) {
+                    //单元格不为空，则加入列表
+                    linked.add(value);
+                }
+            }
+            if (linked.size()!= 0) {
+                list.add(linked);
+            }
+        }
+        return list;
+    }
+    /**
+     * 要求excel版本在2007以上
+     *
+     * @param fileInputStream 文件信息
+     * @return
+     * @throws Exception
+     */
+    public static List<List<Object>> readExcel(FileInputStream fileInputStream) throws Exception {
+        List<List<Object>> list = new LinkedList<List<Object>>();
+        XSSFWorkbook xwb = new XSSFWorkbook(fileInputStream);
+        // 读取第一张表格内容
+        XSSFSheet sheet = xwb.getSheetAt(1);
+        XSSFRow row = null;
+        XSSFCell cell = null;
+        for (int i = (sheet.getFirstRowNum() + 1); i <= (sheet.getPhysicalNumberOfRows() - 1); i++) {
+            row = sheet.getRow(i);
+            if (row == null) {
+                continue;
+            }
+            List<Object> linked = new LinkedList<Object>();
+            for (int j = row.getFirstCellNum(); j <= row.getLastCellNum(); j++) {
+                Object value = null;
+                cell = row.getCell(j);
+                if (cell == null) {
+                    continue;
+                }
+                switch (cell.getCellType()) {
+                    case XSSFCell.CELL_TYPE_STRING:
+                        value = cell.getStringCellValue();
+                        break;
+                    case XSSFCell.CELL_TYPE_NUMERIC:
+                        if ("yyyy\"年\"m\"月\"d\"日\";@".equals(cell.getCellStyle().getDataFormatString())) {
+                            //System.out.println(cell.getNumericCellValue()+":日期格式："+cell.getCellStyle().getDataFormatString());
+                            value = DateUtils.getMillis(HSSFDateUtil.getJavaDate(cell.getNumericCellValue())) / 1000;
+                        } else {
+                            //System.out.println(cell.getNumericCellValue()+":格式："+cell.getCellStyle().getDataFormatString());
+                            value = cell.getNumericCellValue();
+                        }
+                        break;
+                    case XSSFCell.CELL_TYPE_BOOLEAN:
+                        value = cell.getBooleanCellValue();
+                        break;
+                    case XSSFCell.CELL_TYPE_BLANK:
+                        break;
+                    default:
+                        value = cell.toString();
+                }
+                if (value != null && !value.equals("")) {
+                    //单元格不为空，则加入列表
+                    linked.add(value);
+                }
+            }
+            if (linked.size()!= 0) {
+                list.add(linked);
+            }
+        }
+        return list;
+    }
+ 
+    /**
+     * 导出excel
+     * @param excel_name 导出的excel路径（需要带.xlsx)
+     * @param headList  excel的标题备注名称
+     * @param fieldList excel的标题字段（与数据中map中键值对应）
+     * @param dataList  excel数据
+     * @throws Exception
+     */
+    public static void createExcel(String excel_name, String[] headList,
+                                   String[] fieldList, List<Map<String, Object>> dataList)
+            throws Exception {
+        // 创建新的Excel 工作簿
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        // 在Excel工作簿中建一工作表，其名为缺省值
+        XSSFSheet sheet = workbook.createSheet();
+        // 在索引0的位置创建行（最顶端的行）
+        XSSFRow row = sheet.createRow(0);
+        // 设置excel头（第一行）的头名称
+        for (int i = 0; i < headList.length; i++) {
+ 
+            // 在索引0的位置创建单元格（左上端）
+            XSSFCell cell = row.createCell(i);
+            // 定义单元格为字符串类型
+            cell.setCellType(XSSFCell.CELL_TYPE_STRING);
+            // 在单元格中输入一些内容
+            cell.setCellValue(headList[i]);
+        }
+        // ===============================================================
+        //添加数据
+        for (int n = 0; n < dataList.size(); n++) {
+            // 在索引1的位置创建行（最顶端的行）
+            XSSFRow row_value = sheet.createRow(n + 1);
+            Map<String, Object> dataMap = dataList.get(n);
+            // ===============================================================
+            for (int i = 0; i < fieldList.length; i++) {
+ 
+                // 在索引0的位置创建单元格（左上端）
+                XSSFCell cell = row_value.createCell(i);
+                // 定义单元格为字符串类型
+                cell.setCellType(XSSFCell.CELL_TYPE_STRING);
+                // 在单元格中输入一些内容
+                cell.setCellValue((dataMap.get(fieldList[i])).toString());
+            }
+            // ===============================================================
+        }
+        // 新建一输出文件流
+        FileOutputStream fos = new FileOutputStream(excel_name);
+        // 把相应的Excel 工作簿存盘
+        workbook.write(fos);
+        fos.flush();
+        // 操作结束，关闭文件
+        fos.close();
+    }
+}
+```
+
